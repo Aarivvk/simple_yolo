@@ -24,13 +24,13 @@ const int64_t kNumberOfSamplesPerCheckpoint = 10;
 
 // Set to `true` to restore models and optimizers from previously saved
 // checkpoints.
-const bool kRestoreFromCheckpoint = true;
+const bool kRestoreFromCheckpoint = false;
 
 const bool kTest = true;
 
 const int64_t kTestBatchSize = 1;
 
-const bool kTrain = false;
+const bool kTrain = true;
 
 // After how many batches to log a new update with the loss value.
 const int64_t kLogInterval = 10;
@@ -49,7 +49,8 @@ void train(Module &module, Optimizer &optimizer, torch::Device &device)
     std::cout << "Lodded training data set." << std::endl;
     int64_t checkpoint_counter = 0;
 
-    const auto start_time = std::chrono::system_clock::now();
+    const auto start_time = std::chrono::steady_clock::now();
+    std::chrono::time_point<std::chrono::steady_clock> b_start_time;
 
     for (int64_t epoch = 1; epoch <= kNumberOfEpochs; ++epoch)
     {
@@ -57,7 +58,7 @@ void train(Module &module, Optimizer &optimizer, torch::Device &device)
         int64_t batch_index = 0;
         for (torch::data::Example<> &batch : *data_loader)
         {
-            const auto b_start_time = std::chrono::system_clock::now();
+            b_start_time = std::chrono::steady_clock::now();
             optimizer.zero_grad();
             torch::Tensor real_images = batch.data.to(device);
             torch::Tensor real_labels = batch.target.to(device);
@@ -68,7 +69,8 @@ void train(Module &module, Optimizer &optimizer, torch::Device &device)
             batch_index++;
             if (batch_index % kLogInterval == 0)
             {
-                auto duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - b_start_time);
+                auto duration = std::chrono::steady_clock::now() - b_start_time;
+                duration = std::chrono::duration_cast<std::chrono::seconds>(duration);
                 std::printf(
                     "\r[%2ld/%2ld][%3ld/%3ld] | loss: %.4f | Time elapsed: %3ld",
                     epoch,
@@ -89,7 +91,7 @@ void train(Module &module, Optimizer &optimizer, torch::Device &device)
         }
     }
 
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start_time);
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start_time);
     auto in_minutes = duration.count() / 60;
     std::cout << "Training complete! Total time took = " << in_minutes << std::endl;
 }
@@ -144,13 +146,13 @@ int main()
 
     torch::Device device(device_type);
     //Configs :
-    std::vector<uint> n_blocks{2, 2, 2};
-    std::vector<uint> n_channels{16, 32, 64};
+    std::vector<uint> n_blocks{2, 2};
+    std::vector<uint> n_channels{16, 32};
     std::vector<uint> bottlenecks{};
-    uint first_kernel_size = 3;
+    uint first_kernel_size = 7;
 
     ResNetBase base_resnet = ResNetBase(n_blocks, n_channels, bottlenecks, 1, first_kernel_size);
-    torch::nn::Linear classification(n_channels[2], 10);
+    torch::nn::Linear classification(n_channels[n_channels.size() - 1], 10);
     torch::nn::Sequential module = torch::nn::Sequential(base_resnet, classification);
     module->to(device);
     torch::optim::SGD resnet_optimizer(module->parameters(), torch::optim::SGDOptions(0.01).momentum(0.5));
