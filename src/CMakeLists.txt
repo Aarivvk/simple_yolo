@@ -19,6 +19,12 @@ set_target_properties(${Target} PROPERTIES CXX_STANDARD 14)
 target_link_libraries(${Target} PRIVATE "${TORCH_LIBRARIES}")
 target_include_directories(${Target} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
+set(Target1 dnn-mnist)
+add_executable(${Target1} simple_main_mnist.cpp)
+set_target_properties(${Target1} PROPERTIES CXX_STANDARD 14)
+target_link_libraries(${Target1} PRIVATE "${TORCH_LIBRARIES}")
+target_include_directories(${Target1} PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 set(Target2 resnet50-cifar10)
 add_executable(${Target2} main_cifar10.cpp)
 set_target_properties(${Target2} PROPERTIES CXX_STANDARD 14)
@@ -26,4 +32,4 @@ target_link_libraries(${Target2} PRIVATE cifar10 "${TORCH_LIBRARIES}")
 target_include_directories(${Target2} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 
-install(TARGETS ${Target} ${Target2} CONFIGURATIONS Release RUNTIME DESTINATION playground/bin)
+install(TARGETS ${Target} ${Target1} ${Target2} CONFIGURATIONS Release RUNTIME DESTINATION playground/bin)

@@ -135,7 +135,8 @@ TORCH_MODULE(BottleneckResidualBlock);
 
 struct ResNetBaseImpl : torch::nn::Module
 {
-    ResNetBaseImpl(std::vector<uint> n_blocks, std::vector<uint> n_channels, std::vector<uint> bottlenecks, uint img_channels = 3, uint first_kernel_size = 7) : conv1(torch::nn::ConvTranspose2dOptions(img_channels, n_channels[0], first_kernel_size).stride(2).padding(std::floor(first_kernel_size / 2))), batch_norm1(n_channels[0])
+    ResNetBaseImpl(std::vector<uint> n_blocks, std::vector<uint> n_channels, std::vector<uint> bottlenecks, uint img_channels = 3, uint first_kernel_size = 7) : conv1(torch::nn::ConvTranspose2dOptions(img_channels, n_channels[0], first_kernel_size).stride(2).padding(std::floor(first_kernel_size / 2))),
+                                                                                                                                                                 batch_norm1(n_channels[0])
     {
         register_module("conv1", conv1);
         register_module("batch_norm1", batch_norm1);

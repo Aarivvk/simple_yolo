@@ -1,6 +1,5 @@
-#include "resnet.hpp"
+#include <torch/torch.h>
 #include <vector>
-#include <chrono>
 
 // The batch size for training.
 const int64_t kBatchSize = 64;
@@ -13,7 +12,7 @@ const int64_t kNumberOfTestEpochs = 5;
 // Where to find the MNIST dataset.
 const char *kDataFolder = "./training/data/mnist";
 
-const char *kCheckPointFolder = "./training/check_points/resent18";
+const char *kCheckPointFolder = "./training/check_points/simple_mnist";
 
 // After how many batches to create a new checkpoint periodically.
 const int64_t kCheckpointEvery = 500;
@@ -72,6 +71,14 @@ void train(Module &module, Optimizer &optimizer, torch::Device &device)
                     batches_per_epoch,
                     loss.item<float>());
             }
+
+            if (batch_index % kCheckpointEvery == 0 || batches_per_epoch == batch_index)
+            {
+                // Checkpoint the model and optimizer state.
+                torch::save(module, std::string(kCheckPointFolder) + "/resnet-checkpoint.pt");
+                torch::save(optimizer, std::string(kCheckPointFolder) + "/resnet_optimizer-checkpoint.pt");
+                std::cout << "\n\rCheck point saved " << ++checkpoint_counter << std::endl;
+            }
         }
     }
     std::cout << "Training complete!" << std::endl;
@@ -128,17 +135,16 @@ int main()
     }
 
     torch::Device device(device_type);
-    //Configs :
-    std::vector<uint> n_blocks{1};
-    std::vector<uint> n_channels{20};
-    std::vector<uint> bottlenecks{};
-    uint first_kernel_size = 5;
 
-    ResNetBase base_resnet = ResNetBase(n_blocks, n_channels, bottlenecks, 1, first_kernel_size);
-    torch::nn::Sequential module = torch::nn::Sequential(base_resnet,
+    torch::nn::Sequential module = torch::nn::Sequential(torch::nn::Conv2d(torch::nn::Conv2dOptions(1, 10, /*kernel_size=*/5)),
+                                                         torch::nn::MaxPool2d(torch::nn::MaxPool2dOptions(2)),
+                                                         torch::nn::ReLU(),
+                                                         torch::nn::Conv2d(torch::nn::Conv2dOptions(10, 20, /*kernel_size=*/5)),
+                                                         torch::nn::Dropout(),
+                                                         torch::nn::MaxPool2d(torch::nn::MaxPool2dOptions(2)),
                                                          torch::nn::Flatten(),
                                                          torch::nn::ReLU(),
-                                                         torch::nn::Linear(torch::nn::LinearOptions(n_channels[n_channels.size() - 1], 50)),
+                                                         torch::nn::Linear(torch::nn::LinearOptions(320, 50)),
                                                          torch::nn::ReLU(),
                                                          torch::nn::Dropout(torch::nn::DropoutOptions(0.5)),
                                                          torch::nn::Linear(torch::nn::LinearOptions(50, 10)),
@@ -157,11 +163,7 @@ int main()
     }
 
     if (kTrain)
-    {
         train(module, resnet_optimizer, device);
-        torch::save(module, std::string(kCheckPointFolder) + "/resnet-checkpoint.pt");
-        torch::save(resnet_optimizer, std::string(kCheckPointFolder) + "/resnet_optimizer-checkpoint.pt");
-    }
 
     if (kTest)
         test(module, device);
