@@ -25,7 +25,7 @@ const int64_t kNumberOfSamplesPerCheckpoint = 10;
 
 // Set to `true` to restore models and optimizers from previously saved
 // checkpoints.
-const bool kRestoreFromCheckpoint = false;
+const bool kRestoreFromCheckpoint = true;
 
 const bool kTest = true;
 
@@ -36,97 +36,9 @@ const bool kTrain = true;
 // After how many batches to log a new update with the loss value.
 const int64_t kLogInterval = 10;
 
-template <class Module, class Optimizer>
-void train(Module &module, Optimizer &optimizer, torch::Device &device)
-{
-    std::cout << "started the training..." << std::endl;
-    // Assume the MNIST dataset is available under `mnist`;
-    auto dataset = CIFAR10(kDataFolder)
-                       .map(torch::data::transforms::Normalize<>(0.5, 0.5))
-                       .map(torch::data::transforms::Stack<>());
-    const int64_t batches_per_epoch = std::ceil(dataset.size().value() / static_cast<double>(kBatchSize));
-
-    auto data_loader = torch::data::make_data_loader<torch::data::samplers::SequentialSampler>(std::move(dataset), kBatchSize);
-    std::cout << "Lodded training data set." << std::endl;
-    int64_t checkpoint_counter = 0;
-
-    const auto start_time = std::chrono::system_clock::now();
-
-    for (int64_t epoch = 1; epoch <= kNumberOfEpochs; ++epoch)
-    {
-        module->train();
-        int64_t batch_index = 0;
-        for (torch::data::Example<> &batch : *data_loader)
-        {
-            const auto b_start_time = std::chrono::system_clock::now();
-            optimizer.zero_grad();
-            torch::Tensor real_images = batch.data.to(device);
-            torch::Tensor real_labels = batch.target.to(device);
-            torch::Tensor real_output = torch::log_softmax(module->forward(real_images), 1);
-            torch::Tensor loss = torch::nll_loss(real_output, real_labels);
-            loss.backward();  // calculate the gradiants [the resulting tensor holds the compute graph].
-            optimizer.step(); // Apply the calculated grads.
-            batch_index++;
-            if (batch_index % kLogInterval == 0)
-            {
-                auto duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - b_start_time);
-                std::printf(
-                    "\r[%2ld/%2ld][%3ld/%3ld] | loss: %.4f | Time elapsed: %3ld",
-                    epoch,
-                    kNumberOfEpochs,
-                    batch_index,
-                    batches_per_epoch,
-                    loss.item<float>(),
-                    duration.count());
-            }
-
-            if (batch_index % kCheckpointEvery == 0)
-            {
-                // Checkpoint the model and optimizer state.
-                torch::save(module, std::string(kCheckPointFolder) + "/resnet-checkpoint.pt");
-                torch::save(optimizer, std::string(kCheckPointFolder) + "/resnet_optimizer-checkpoint.pt");
-                std::cout << "\n\rCheck point saved " << ++checkpoint_counter << std::endl;
-            }
-        }
-    }
-
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start_time);
-    auto in_minutes = duration.count() / 60;
-    std::cout << "Training complete! Total time took = " << in_minutes << std::endl;
-}
-
-template <class Module>
-void test(Module &module, torch::Device &device)
-{
-    auto test_dataset = CIFAR10(
-                            kDataFolder, CIFAR10::Mode::kTest)
-                            .map(torch::data::transforms::Normalize<>(0.5, 0.5))
-                            .map(torch::data::transforms::Stack<>());
-    const size_t test_dataset_size = test_dataset.size().value();
-    auto test_loader = torch::data::make_data_loader(std::move(test_dataset), kTestBatchSize);
-    for (int64_t epoch = 1; epoch <= kNumberOfTestEpochs; ++epoch)
-    {
-        module->eval();
-        double test_loss = 0;
-        int32_t correct = 0;
-        for (const auto &batch : *test_loader)
-        {
-            auto data = batch.data.to(device), targets = batch.target.to(device);
-            auto output = torch::log_softmax(module->forward(data), 1);
-            test_loss += torch::nll_loss(output, targets, {}, torch::Reduction::Sum).template item<float>();
-            correct += output.argmax(1).eq(targets).sum().template item<int64_t>();
-        }
-
-        test_loss /= test_dataset_size;
-        std::printf(
-            "\nTest set: Average loss: %.4f | Accuracy: %.3f\n",
-            test_loss,
-            static_cast<double>(correct) / test_dataset_size);
-    }
-}
-
 //
 //
+#include "helper.hpp"
 int main()
 {
     torch::manual_seed(1);
@@ -148,11 +60,16 @@ int main()
     std::vector<uint> n_blocks{2, 2, 2};
     std::vector<uint> n_channels{16, 32, 64};
     std::vector<uint> bottlenecks{};
-    uint first_kernel_size = 3;
+    uint first_kernel_size = 5;
 
     ResNetBase base_resnet = ResNetBase(n_blocks, n_channels, bottlenecks, 3, first_kernel_size);
-    torch::nn::Linear classification(n_channels[2], 10);
-    torch::nn::Sequential module = torch::nn::Sequential(base_resnet, classification);
+
+    torch::nn::Sequential module = torch::nn::Sequential(base_resnet, torch::nn::Flatten(),
+                                                         torch::nn::Linear(torch::nn::LinearOptions(n_channels[n_channels.size() - 1], 50)),
+                                                         torch::nn::ReLU(),
+                                                         torch::nn::Dropout(torch::nn::DropoutOptions(0.5)),
+                                                         torch::nn::Linear(torch::nn::LinearOptions(50, 10)),
+                                                         torch::nn::LogSoftmax(torch::nn::LogSoftmaxOptions(1)));
     module->to(device);
     torch::optim::SGD resnet_optimizer(module->parameters(), torch::optim::SGDOptions(0.01).momentum(0.5));
     std::cout << "Module is built " << std::endl;
@@ -167,10 +84,20 @@ int main()
     }
 
     if (kTrain)
-        train(module, resnet_optimizer, device);
+    {
+        auto train_data = CIFAR10(kDataFolder, CIFAR10::Mode::kTrain)
+                              .map(torch::data::transforms::Normalize<>(0.5, 0.5))
+                              .map(torch::data::transforms::Stack<>());
+        train(module, resnet_optimizer, device, train_data);
+    }
 
     if (kTest)
-        test(module, device);
+    {
+        auto test_data = CIFAR10(kDataFolder, CIFAR10::Mode::kTest)
+                             .map(torch::data::transforms::Normalize<>(0.5, 0.5))
+                             .map(torch::data::transforms::Stack<>());
+        test(module, device, test_data);
+    }
 
     return 0;
 }

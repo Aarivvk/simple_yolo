@@ -34,83 +34,9 @@ const bool kTrain = true;
 // After how many batches to log a new update with the loss value.
 const int64_t kLogInterval = 10;
 
-template <class Module, class Optimizer>
-void train(Module &module, Optimizer &optimizer, torch::Device &device)
-{
-    std::cout << "started the training..." << std::endl;
-    // Assume the MNIST dataset is available under `mnist`;
-    auto dataset = torch::data::datasets::MNIST(kDataFolder)
-                       .map(torch::data::transforms::Normalize<>(0.5, 0.5))
-                       .map(torch::data::transforms::Stack<>());
-    const int64_t batches_per_epoch = std::ceil(dataset.size().value() / static_cast<double>(kBatchSize));
-
-    auto data_loader = torch::data::make_data_loader<torch::data::samplers::SequentialSampler>(std::move(dataset), kBatchSize);
-    std::cout << "Lodded training data set." << std::endl;
-    int64_t checkpoint_counter = 0;
-
-    for (int64_t epoch = 1; epoch <= kNumberOfEpochs; ++epoch)
-    {
-        module->train();
-        int64_t batch_index = 0;
-        for (torch::data::Example<> &batch : *data_loader)
-        {
-            optimizer.zero_grad();
-            torch::Tensor real_images = batch.data.to(device);
-            torch::Tensor real_labels = batch.target.to(device);
-            torch::Tensor real_output = module->forward(real_images);
-            torch::Tensor loss = torch::nll_loss(real_output, real_labels);
-            loss.backward();  // calculate the gradiants [the resulting tensor holds the compute graph].
-            optimizer.step(); // Apply the calculated grads.
-            batch_index++;
-            if (batch_index % kLogInterval == 0)
-            {
-                std::printf(
-                    "\r[%2ld/%2ld][%3ld/%3ld] | loss: %.4f",
-                    epoch,
-                    kNumberOfEpochs,
-                    batch_index,
-                    batches_per_epoch,
-                    loss.item<float>());
-            }
-        }
-    }
-    std::cout << "Training complete!" << std::endl;
-}
-
-template <class Module>
-void test(Module &module, torch::Device &device)
-{
-    std::cout << "Started Testing" << std::endl;
-    auto test_dataset = torch::data::datasets::MNIST(
-                            kDataFolder, torch::data::datasets::MNIST::Mode::kTrain)
-                            .map(torch::data::transforms::Normalize<>(0.5, 0.5))
-                            .map(torch::data::transforms::Stack<>());
-    const size_t test_dataset_size = test_dataset.size().value();
-    auto test_loader = torch::data::make_data_loader(std::move(test_dataset), kTestBatchSize);
-    std::cout << "Loading Test data is complete" << std::endl;
-    for (int64_t epoch = 1; epoch <= kNumberOfTestEpochs; ++epoch)
-    {
-        module->eval();
-        double test_loss = 0;
-        int32_t correct = 0;
-        for (const auto &batch : *test_loader)
-        {
-            auto data = batch.data.to(device), targets = batch.target.to(device);
-            auto output = module->forward(data);
-            test_loss += torch::nll_loss(output, targets, {}, torch::Reduction::Sum).template item<float>();
-            correct += output.argmax(1).eq(targets).sum().template item<int64_t>();
-        }
-
-        test_loss /= test_dataset_size;
-        std::printf(
-            "\nTest set: Average loss: %.4f | Accuracy: %.3f\n",
-            test_loss,
-            static_cast<double>(correct) / test_dataset_size);
-    }
-}
-
 //
 //
+#include "helper.hpp"
 int main()
 {
     torch::manual_seed(1);
@@ -137,7 +63,6 @@ int main()
     ResNetBase base_resnet = ResNetBase(n_blocks, n_channels, bottlenecks, 1, first_kernel_size);
     torch::nn::Sequential module = torch::nn::Sequential(base_resnet,
                                                          torch::nn::Flatten(),
-                                                         torch::nn::ReLU(),
                                                          torch::nn::Linear(torch::nn::LinearOptions(n_channels[n_channels.size() - 1], 50)),
                                                          torch::nn::ReLU(),
                                                          torch::nn::Dropout(torch::nn::DropoutOptions(0.5)),
@@ -158,13 +83,23 @@ int main()
 
     if (kTrain)
     {
-        train(module, resnet_optimizer, device);
+        auto train_data = torch::data::datasets::MNIST(
+                              kDataFolder, torch::data::datasets::MNIST::Mode::kTrain)
+                              .map(torch::data::transforms::Normalize<>(0.5, 0.5))
+                              .map(torch::data::transforms::Stack<>());
+        train(module, resnet_optimizer, device, train_data);
         torch::save(module, std::string(kCheckPointFolder) + "/resnet-checkpoint.pt");
         torch::save(resnet_optimizer, std::string(kCheckPointFolder) + "/resnet_optimizer-checkpoint.pt");
     }
 
     if (kTest)
-        test(module, device);
+    {
+        auto test_data = torch::data::datasets::MNIST(
+                             kDataFolder, torch::data::datasets::MNIST::Mode::kTest)
+                             .map(torch::data::transforms::Normalize<>(0.5, 0.5))
+                             .map(torch::data::transforms::Stack<>());
+        test(module, device, test_data);
+    }
 
     return 0;
 }
