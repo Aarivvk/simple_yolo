@@ -8,7 +8,7 @@
 const int64_t kBatchSize = 64;
 
 // The number of epochs to train.
-const int64_t kNumberOfEpochs = 20;
+const int64_t kNumberOfEpochs = 60;
 
 const int64_t kNumberOfTestEpochs = 1;
 
@@ -25,7 +25,7 @@ const int64_t kNumberOfSamplesPerCheckpoint = 10;
 
 // Set to `true` to restore models and optimizers from previously saved
 // checkpoints.
-const bool kRestoreFromCheckpoint = true;
+const bool kRestoreFromCheckpoint = false;
 
 const bool kTest = true;
 
@@ -57,14 +57,14 @@ int main()
 
     torch::Device device(device_type);
     //Configs :
-    std::vector<uint> n_blocks{2, 2, 2};
+    std::vector<uint> n_blocks{2, 2, 2, 2};
     std::vector<uint> n_channels{16, 32, 64};
     std::vector<uint> bottlenecks{};
-    uint first_kernel_size = 5;
+    uint first_kernel_size = 3;
 
     ResNetBase base_resnet = ResNetBase(n_blocks, n_channels, bottlenecks, 3, first_kernel_size);
-
-    torch::nn::Sequential module = torch::nn::Sequential(base_resnet, torch::nn::Flatten(),
+    torch::nn::Sequential module = torch::nn::Sequential(base_resnet,
+                                                         torch::nn::Flatten(),
                                                          torch::nn::Linear(torch::nn::LinearOptions(n_channels[n_channels.size() - 1], 50)),
                                                          torch::nn::ReLU(),
                                                          torch::nn::Dropout(torch::nn::DropoutOptions(0.5)),
@@ -86,7 +86,8 @@ int main()
     if (kTrain)
     {
         auto train_data = CIFAR10(kDataFolder, CIFAR10::Mode::kTrain)
-                              .map(torch::data::transforms::Normalize<>(0.5, 0.5))
+                              .map(torch::data::transforms::Normalize<>({0.4914, 0.4822, 0.4465},
+                                                                        {0.2023, 0.1994, 0.2010}))
                               .map(torch::data::transforms::Stack<>());
         train(module, resnet_optimizer, device, train_data);
     }
@@ -94,7 +95,8 @@ int main()
     if (kTest)
     {
         auto test_data = CIFAR10(kDataFolder, CIFAR10::Mode::kTest)
-                             .map(torch::data::transforms::Normalize<>(0.5, 0.5))
+                             .map(torch::data::transforms::Normalize<>({0.4914, 0.4822, 0.4465},
+                                                                       {0.2023, 0.1994, 0.2010}))
                              .map(torch::data::transforms::Stack<>());
         test(module, device, test_data);
     }
