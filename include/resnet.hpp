@@ -26,7 +26,6 @@ struct ResidualBlockImpl : torch::nn::Module
 {
     ResidualBlockImpl(uint in_channels, uint out_channels, uint stride) : conv1(torch::nn::Conv2dOptions(in_channels, out_channels, 3).stride(stride).padding(1)), batch_norm1(out_channels), conv2(torch::nn::Conv2dOptions(out_channels, out_channels, 3).stride(1).padding(1)), batch_norm2(out_channels)
     {
-
         register_module("conv1", conv1);
         register_module("batch_norm1", batch_norm1);
         register_module("relu1", act1);
@@ -44,18 +43,18 @@ struct ResidualBlockImpl : torch::nn::Module
     {
         // std::cout << "BB Predicting step 0" << x.sizes() << std::endl;
         torch::Tensor identity = x;
+        torch::Tensor out = act1(batch_norm1(conv1(x)));
+        // std::cout << "BB Predicting step 1" << x.sizes() << std::endl;
+        out = batch_norm2(conv2(out));
+        // std::cout << "BB Predicting step 2" << x.sizes() << std::endl;
         if (!sshort.is_empty())
         {
-            identity = sshort->forward(x);
+            identity = sshort->forward(identity);
         }
-        x = act1(batch_norm1(conv1(x)));
-        // std::cout << "BB Predicting step 1" << x.sizes() << std::endl;
-        x = batch_norm2(conv2(x));
-        // std::cout << "BB Predicting step 2" << x.sizes() << std::endl;
-        x = act2(x + identity);
+        out = act2(out + identity);
         // std::cout << "BB Predicting step complete" << x.sizes() << std::endl;
 
-        return x;
+        return out;
     }
 
     torch::nn::Conv2d conv1, conv2;

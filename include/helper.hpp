@@ -1,42 +1,3 @@
-torch::nn::Conv2dOptions
-create_conv_options(int64_t in_planes, int64_t out_planes, int64_t kerner_size,
-                    int64_t stride = 1, int64_t padding = 0, int64_t groups = 1,
-                    int64_t dilation = 1, bool bias = false)
-{
-    torch::nn::Conv2dOptions conv_options =
-        torch::nn::Conv2dOptions(in_planes, out_planes, kerner_size)
-            .stride(stride)
-            .padding(padding)
-            .bias(bias)
-            .groups(groups)
-            .dilation(dilation);
-
-    return conv_options;
-}
-
-torch::nn::Conv2dOptions create_conv3x3_options(int64_t in_planes,
-                                                int64_t out_planes,
-                                                int64_t stride = 1,
-                                                int64_t groups = 1,
-                                                int64_t dilation = 1)
-{
-    torch::nn::Conv2dOptions conv_options = create_conv_options(
-        in_planes, out_planes, /*kerner_size = */ 3, stride,
-        /*padding = */ dilation, groups, /*dilation = */ dilation, false);
-    return conv_options;
-}
-
-torch::nn::Conv2dOptions create_conv1x1_options(int64_t in_planes,
-                                                int64_t out_planes,
-                                                int64_t stride = 1)
-{
-    torch::nn::Conv2dOptions conv_options = create_conv_options(
-        in_planes, out_planes,
-        /*kerner_size = */ 1, stride,
-        /*padding = */ 0, /*groups = */ 1, /*dilation = */ 1, false);
-    return conv_options;
-}
-
 template <class Module, class Optimizer, class Device, class DataSet>
 void train(Module &module, Optimizer &optimizer, Device &device, DataSet data_set)
 {
@@ -59,7 +20,7 @@ void train(Module &module, Optimizer &optimizer, Device &device, DataSet data_se
             torch::Tensor real_images = batch.data.to(device);
             torch::Tensor real_labels = batch.target.to(device);
             torch::Tensor real_output = module->forward(real_images);
-            torch::Tensor loss = torch::nll_loss(real_output, real_labels);
+            torch::Tensor loss = torch::cross_entropy_loss(real_output, real_labels);
             loss.backward();  // calculate the gradiants [the resulting tensor holds the compute graph].
             optimizer.step(); // Apply the calculated grads.
             batch_index++;
@@ -95,7 +56,7 @@ void test(Module &module, Device &device, DataSet data_set)
         {
             auto data = batch.data.to(device), targets = batch.target.to(device);
             auto output = module->forward(data);
-            test_loss += torch::nll_loss(output, targets, {}, torch::Reduction::Sum).template item<float>();
+            test_loss += torch::cross_entropy_loss(output, targets, {}, torch::Reduction::Sum).template item<float>();
             correct += output.argmax(1).eq(targets).sum().template item<int64_t>();
         }
 
