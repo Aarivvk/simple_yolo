@@ -13,17 +13,6 @@ set_target_properties(cifar10 PROPERTIES CXX_STANDARD 14)
 target_include_directories(cifar10 PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(cifar10 PRIVATE "${TORCH_LIBRARIES}")
 
-
-# add_library(resnet resnet-liem.cpp)
-# set_target_properties(resnet PROPERTIES CXX_STANDARD 17) 
-# target_include_directories(resnet PRIVATE ${CMAKE_SOURCE_DIR}/include)
-# target_link_libraries(resnet PRIVATE "${TORCH_LIBRARIES}")
-
-# add_executable(resnet-cifar-demo resnet-cifar-demo.cpp)
-# set_target_properties(resnet-cifar-demo PROPERTIES CXX_STANDARD 17) # To use C++ <filesystem>
-# target_include_directories(resnet-cifar-demo PRIVATE ${CMAKE_SOURCE_DIR}/include)
-# target_link_libraries(resnet-cifar-demo PRIVATE cifar10 resnet "${TORCH_LIBRARIES}")
-
 set(Target resnet50-mnist)
 add_executable(${Target} main_mnist.cpp)
 set_target_properties(${Target} PROPERTIES CXX_STANDARD 14)
