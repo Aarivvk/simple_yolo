@@ -2,3 +2,4 @@ build/*
 .vscode*
 training/*
 lib/libtorch
+.cache/
