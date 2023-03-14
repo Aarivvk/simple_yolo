@@ -40,7 +40,7 @@ void train(Module &module, Optimizer &optimizer, Device &device, DataSet data_se
 }
 
 template <class Module, class Device, class DataSet>
-void test(Module &module, Device &device, DataSet data_set)
+void validate(Module &module, Device &device, DataSet data_set)
 {
     std::cout << "Started Testing" << std::endl;
     auto test_dataset = data_set;
@@ -54,7 +54,8 @@ void test(Module &module, Device &device, DataSet data_set)
         int32_t correct = 0;
         for (const auto &batch : *test_loader)
         {
-            auto data = batch.data.to(device), targets = batch.target.to(device);
+            auto data = batch.data.to(device);
+            auto targets = batch.target.to(device);
             auto output = module->forward(data);
             test_loss += torch::cross_entropy_loss(output, targets, {}, torch::Reduction::Sum).template item<float>();
             correct += output.argmax(1).eq(targets).sum().template item<int64_t>();
