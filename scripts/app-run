@@ -1,0 +1,2 @@
+cd build/src
+./resnet50-cifar10
