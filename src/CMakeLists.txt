@@ -13,8 +13,8 @@ set(CMAKE_CXX_STANDARD 17) # To use C++ <filesystem>
 set(Target1 dnn-mnist)
 add_executable(${Target1} simple_main_mnist.cpp)
 set_target_properties(${Target1} PROPERTIES CXX_STANDARD 14)
-target_link_libraries(${Target1} PRIVATE "${TORCH_LIBRARIES}")
-target_include_directories(${Target1} PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(${Target1} PRIVATE "${TORCH_LIBRARIES}" ${OpenCV_LIBS})
+target_include_directories(${Target1} PRIVATE ${CMAKE_SOURCE_DIR}/include /opt/homebrew/Cellar/opencv/4.7.0_2/include/opencv4)
 
 set(Target2 ocv)
 add_executable(${Target2} opencv.cpp)
