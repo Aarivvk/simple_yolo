@@ -1,10 +1,9 @@
-#include <torch/torch.h>
-
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <ostream>
 
 #include "opencv2/core.hpp"
+#include "torch/torch.h"
 
 struct Settings
 {
@@ -96,7 +95,14 @@ void demo(Module &module, Device &device, DataSet data_set)
   module->eval();
   for (const auto &batch : *test_loader)
   {
+    // Predict the number.
     auto data = batch.data.to(device);
+    auto targets = batch.target.to(device);
+    auto output = module->forward(data);
+    auto ret = output.argmax(1)[0];
+    std::cout << "Prediction " << ret << std::endl;
+
+    // Display images.
     torch::Tensor image = data.squeeze().squeeze().detach().permute({ 0, 1 });
     image = image.mul(255).clamp(0, 255).to(torch::kU8);
     image = image.to(torch::kCPU);
@@ -104,22 +110,9 @@ void demo(Module &module, Device &device, DataSet data_set)
     std::memcpy((void *)resultImg.data, image.data_ptr(), sizeof(torch::kU8) * image.numel());
     cv::imshow("test", resultImg);
 
-    auto targets = batch.target.to(device);
-    auto output = module->forward(data);
-    auto ret = output.argmax(1);
-    std::cout << "Prediction " << ret << std::endl;
-
     if (cv::waitKey(0) == 'q')
     {
       break;
     }
   }
 }
-
-// torch::Tensor out_tensor = module->forward(inputs).toTensor();
-// assert(out_tensor.device().type() == torch::kCUDA);
-// out_tensor=out_tensor.squeeze().detach().permute({1,2,0});
-// out_tensor=out_tensor.mul(255).clamp(0,255).to(torch::kU8);
-// out_tensor=out_tensor.to(torch::kCPU);
-// cv::Mat resultImg(512, 512,CV_8UC3);
-// std::memcpy((void*)resultImg.data,out_tensor.data_ptr(),sizeof(torch::kU8)*out_tensor.numel());
