@@ -17,7 +17,7 @@ class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
     kTest
   };
 
-  explicit YOLODataset(const std::string& root, Mode mode = Mode::kTrain, int s=7, int b=2);
+  explicit YOLODataset(const std::string& root, Mode mode = Mode::kTrain, int s=7, int64_t img_size=416);
 
   // https://pytorch.org/cppdocs/api/structtorch_1_1data_1_1_example.html#structtorch_1_1data_1_1_example
   torch::data::Example<> get(size_t index) override;
@@ -26,20 +26,15 @@ class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
 
   bool is_train() const noexcept;
 
-  // Returns all images stacked into a single tensor.
-  const torch::Tensor& images() const;
-
-  const torch::Tensor& targets() const;
-
  private:
-  // Returns all targets stacked into a single tensor.
-  torch::Tensor m_images, m_targets;
+  std::vector<std::string> m_image_column, m_targets_column;
   Mode m_mode;
   int m_cells_s, m_num_achors;
 
-  int64_t m_size{};
+  int64_t m_image_size;
 
-  std::string train_csv{"train.csv"}, test_csv{"train.csv"}, names_file_name{"class-names.csv"};
+  std::string train_csv{"train.csv"}, test_csv{"test.csv"}, names_file_name{"class-names.csv"};
   std::string m_image_path, m_target_path;
   std::vector<std::string>class_names{};
+  size_t m_num_class;
 };
