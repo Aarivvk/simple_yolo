@@ -39,7 +39,7 @@ int main()
 
   std::cout << "Start training" << std::endl;
 
-  //Set the model in training mode
+  // Set the model in training mode
   yolov3->train();
 
   // Iterate the data loader to yield batches from the dataset.
@@ -68,7 +68,12 @@ int main()
     std::cout << "loss " << loss.data().item<float>() << std::endl;
   }
 
-  
+  std::filesystem::path model_save_directory{ "saved_models" };
+  std::filesystem::path model_weight_file_name{ "yolv3.pt" };
+  std::filesystem::path model_save_file_path = model_save_directory / model_weight_file_name;
+
+  // Save the trained module for later reuse.
+  torch::save(yolov3, model_save_file_path);
 
   std::cout << "Done iterating" << std::endl;
 
