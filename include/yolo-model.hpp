@@ -6,10 +6,12 @@
 #include <torch/nn/modules/container/modulelist.h>
 #include <torch/nn/modules/container/sequential.h>
 
+#include "toml++/toml.h"
+
 class YOLOv3Impl : public torch::nn::Module
 {
  public:
-  YOLOv3Impl(int64_t input_channel, int64_t num_classes=20, int64_t num_anchors=3);
+  YOLOv3Impl(toml::node_view<toml::node> config);
   ~YOLOv3Impl() = default;
 
   torch::Tensor forward(torch::Tensor);

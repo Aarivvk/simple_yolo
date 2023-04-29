@@ -9,13 +9,18 @@
 #include <torch/nn/modules/conv.h>
 #include <torch/nn/options/conv.h>
 
+#include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <ostream>
+#include <string_view>
 #include <vector>
 
 #include "yolo-dataset.hpp"
 #include "yolo-loss.hpp"
 #include "yolo-model.hpp"
+
+#include "toml++/toml.h"
 
 int main()
 {
@@ -23,16 +28,26 @@ int main()
   torch::Device device = torch::Device(torch::kCPU);
   std::string data_set_root{ "training/data/PASCAL_VOC" };
 
+  std::filesystem::path config_directory("config");
+  std::filesystem::path config_file("darknet.toml");
+  std::filesystem::path config_file_path = config_directory / config_file;
+  auto config = toml::parse_file(std::string_view(config_file_path.string()));
+
   // Create the module install
-  YOLOv3 yolov3{ 3, 20, 3 };
+  YOLOv3 yolov3{config["yolo_model"]};
   yolov3->to(device);
 
-  torch::optim::Adam optimizer(yolov3->parameters(), torch::optim::AdamOptions(1e-3));
+  auto training_config = config["training"];
+  double learning_rate = training_config["learning_rate"].value<double>().value();
+  torch::optim::Adam optimizer(yolov3->parameters(), torch::optim::AdamOptions(learning_rate));
 
   // Preaper the data set
-  YOLODataset y_data_set{ data_set_root, YOLODataset::Mode::kTrain, 13 };
+  uint64_t batch_size = training_config["batch_size"].value<uint64_t>().value();
+  uint64_t number_of_workers = training_config["number_of_workers"].value<uint64_t>().value();
+  int number_of_detections = training_config["number_of_detections"].value<int>().value();
+  YOLODataset y_data_set{ data_set_root, YOLODataset::Mode::kTrain, number_of_detections };
   auto train_data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
-      y_data_set, torch::data::DataLoaderOptions().batch_size(16).workers(10));
+      y_data_set, torch::data::DataLoaderOptions().batch_size(batch_size).workers(number_of_workers));
 
   // Create the loss object
   YOLOLoss yolo_loss{};

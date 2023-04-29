@@ -42,8 +42,8 @@ target_include_directories(${Target4} PRIVATE ${CMAKE_SOURCE_DIR}/include ${toml
 
 set(Target3 yolo-main)
 add_executable(${Target3} yolo-main.cpp)
-target_link_libraries(${Target3} PRIVATE ${OpenCV_LIBS} ${TORCH_LIBRARIES} yolo-dataset yolo-model)
-target_include_directories(${Target3} PRIVATE ${CMAKE_SOURCE_DIR}/include ${OpenCV_Includes})
+target_link_libraries(${Target3} PRIVATE ${OpenCV_LIBS} ${TORCH_LIBRARIES} yolo-dataset yolo-model ${tomlplusplus_INCLUDE_DIR})
+target_include_directories(${Target3} PRIVATE ${CMAKE_SOURCE_DIR}/include ${OpenCV_Includes} ${tomlplusplus_SOURCE_DIR}/include)
 
 
 install(TARGETS ${Target} ${Target3} ${Target4} CONFIGURATIONS Release RUNTIME DESTINATION playground/bin)

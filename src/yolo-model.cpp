@@ -17,12 +17,11 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <iterator>
 #include <ostream>
 #include <vector>
-
-#include "utils/toml-read.hpp"
 
 #define INTCAST(value) (static_cast<int64_t>(std::floor(value)))
 
@@ -126,12 +125,16 @@ class YOLOPredictionImpl : public torch::nn::Module
 
 TORCH_MODULE(YOLOPrediction);
 
-YOLOv3Impl::YOLOv3Impl(int64_t input_channel, int64_t num_classes, int64_t num_anchors)
+YOLOv3Impl::YOLOv3Impl(toml::node_view<toml::node> model_config)
 {
-  auto num_layers = config["simple"]["ly"].as_array()->size();
+  int64_t input_channel = model_config["input_channel"].value<int64_t>().value();
+  int64_t num_classes  = model_config["num_classes"].value<int64_t>().value();
+  int64_t num_anchors = model_config["num_classes"].value<int64_t>().value();
+  auto layers_config = model_config["layers_structure"];
+  auto num_layers = layers_config.as_array()->size();
   for (size_t i = 0; i < num_layers; i++)
   {
-    auto placeholder = config["simple"]["ly"][i];
+    auto placeholder = layers_config[i];
     int64_t filters = placeholder[0].value<int64_t>().value();
     int64_t ksize = placeholder[1].value<int64_t>().value();
     int64_t stride = placeholder[2].value<int64_t>().value();
