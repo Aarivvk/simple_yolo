@@ -16,16 +16,20 @@
 #include <string_view>
 #include <vector>
 
+#include "toml++/toml.h"
 #include "yolo-dataset.hpp"
 #include "yolo-loss.hpp"
 #include "yolo-model.hpp"
-
-#include "toml++/toml.h"
 
 int main()
 {
   // TODO: add check for device and create accordingly.
   torch::Device device = torch::Device(torch::kCPU);
+  if (torch::cuda::is_available())
+  {
+    device = torch::Device("cuda:0");
+  }
+
   std::string data_set_root{ "training/data/PASCAL_VOC" };
 
   std::filesystem::path config_directory("config");
@@ -34,7 +38,7 @@ int main()
   auto config = toml::parse_file(std::string_view(config_file_path.string()));
 
   // Create the module install
-  YOLOv3 yolov3{config["yolo_model"]};
+  YOLOv3 yolov3{ config["yolo_model"] };
   yolov3->to(device);
 
   auto training_config = config["training"];
