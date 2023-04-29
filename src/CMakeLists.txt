@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(YOLOv3)
 
+set(CMAKE_CXX_STANDARD 17)
+
 include(FetchContent)
 FetchContent_Declare(
     tomlplusplus
@@ -29,21 +31,19 @@ set(CMAKE_CXX_STANDARD 17) # To use C++ <filesystem>
 
 set(Target yolo-dataset)
 add_library(${Target} yolo-dataset.cpp)
-set_target_properties(${Target} PROPERTIES CXX_STANDARD 14)
 target_link_libraries(${Target} PRIVATE ${OpenCV_LIBS} ${TORCH_LIBRARIES})
 target_include_directories(${Target} PRIVATE ${CMAKE_SOURCE_DIR}/include ${OpenCV_Includes})
 
-set(Target3 yolo-main)
-add_executable(${Target3} yolo-main.cpp)
-set_target_properties(${Target3} PROPERTIES CXX_STANDARD 14)
-target_link_libraries(${Target3} PRIVATE ${OpenCV_LIBS} ${TORCH_LIBRARIES} yolo-dataset yolo-model)
-target_include_directories(${Target3} PRIVATE ${CMAKE_SOURCE_DIR}/include ${OpenCV_Includes})
-
 set(Target4 yolo-model)
 add_library(${Target4} yolo-model.cpp)
-set_target_properties(${Target4} PROPERTIES CXX_STANDARD 17)
 message(STATUS "tomlplusplus include  ${tomlplusplus_SOURCE_DIR}/include")
 target_link_libraries(${Target4} PRIVATE ${TORCH_LIBRARIES} ${tomlplusplus_INCLUDE_DIR})
 target_include_directories(${Target4} PRIVATE ${CMAKE_SOURCE_DIR}/include ${tomlplusplus_SOURCE_DIR}/include)
+
+set(Target3 yolo-main)
+add_executable(${Target3} yolo-main.cpp)
+target_link_libraries(${Target3} PRIVATE ${OpenCV_LIBS} ${TORCH_LIBRARIES} yolo-dataset yolo-model)
+target_include_directories(${Target3} PRIVATE ${CMAKE_SOURCE_DIR}/include ${OpenCV_Includes})
+
 
 install(TARGETS ${Target} ${Target3} ${Target4} CONFIGURATIONS Release RUNTIME DESTINATION playground/bin)

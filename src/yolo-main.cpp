@@ -20,7 +20,7 @@
 int main()
 {
   // TODO: add check for device and create accordingly.
-  torch::Device device = torch::Device(torch::kCPU, 0);
+  torch::Device device = torch::Device(torch::kCPU);
   std::string data_set_root{ "training/data/PASCAL_VOC" };
 
   // Create the module install
@@ -67,6 +67,8 @@ int main()
 
     std::cout << "loss " << loss.data().item<float>() << std::endl;
   }
+
+  
 
   std::cout << "Done iterating" << std::endl;
 
