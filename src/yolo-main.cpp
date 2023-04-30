@@ -27,15 +27,19 @@ int main()
   torch::Device device = torch::Device(torch::kCPU);
   if (torch::cuda::is_available())
   {
-    device = torch::Device("cuda:0");
+    device = torch::Device(torch::kCUDA, 0);
+    std::cout << "Using CUDA device" << std::endl;
   }
-
-  std::string data_set_root{ "training/data/PASCAL_VOC" };
+  else
+  {
+    std::cout << "Using CPU device" << std::endl;
+  }
 
   std::filesystem::path config_directory("config");
   std::filesystem::path config_file("darknet.toml");
   std::filesystem::path config_file_path = config_directory / config_file;
-  auto config = toml::parse_file(std::string_view(config_file_path.string()));
+  std::cout << "Loading the configuration file " << config_file_path.string() << std::endl;
+  auto config = toml::parse_file(config_file_path.string());
 
   // Create the module install
   YOLOv3 yolov3{ config["yolo_model"] };
@@ -49,7 +53,10 @@ int main()
   uint64_t batch_size = training_config["batch_size"].value<uint64_t>().value();
   uint64_t number_of_workers = training_config["number_of_workers"].value<uint64_t>().value();
   int number_of_detections = training_config["number_of_detections"].value<int>().value();
-  YOLODataset y_data_set{ data_set_root, YOLODataset::Mode::kTrain, number_of_detections };
+  const std::string train_data_set_root = training_config["training_data_directory"].value<std::string>().value();
+  std::cout << "train_data_set_root " << train_data_set_root << std::endl;
+
+  YOLODataset y_data_set{ train_data_set_root , YOLODataset::Mode::kTrain, number_of_detections };
   auto train_data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
       y_data_set, torch::data::DataLoaderOptions().batch_size(batch_size).workers(number_of_workers));
 
@@ -71,8 +78,8 @@ int main()
     std::vector<torch::Tensor> batch_inputs_vector, batch_targets_vector;
     std::transform(batch.begin(), batch.end(), std::back_inserter(batch_inputs_vector), [](auto &e) { return e.data; });
     std::transform(batch.begin(), batch.end(), std::back_inserter(batch_targets_vector), [](auto &e) { return e.target; });
-    torch::Tensor batch_inputs_tensor = torch::stack(batch_inputs_vector);
-    torch::Tensor batch_targets_tensor = torch::stack(batch_targets_vector);
+    torch::Tensor batch_inputs_tensor = torch::stack(batch_inputs_vector).to(device);
+    torch::Tensor batch_targets_tensor = torch::stack(batch_targets_vector).to(device);
 
     auto model_prediction_tensor = yolov3(batch_inputs_tensor);
 
@@ -84,10 +91,11 @@ int main()
     // Update the weights with gradients
     optimizer.step();
 
-    std::cout << "loss " << loss.data().item<float>() << std::endl;
+    std::cout << "loss = " << loss.data().item<float>() << std::endl;
   }
 
   std::filesystem::path model_save_directory{ "saved_models" };
+  std::filesystem::create_directory(model_save_directory);
   std::filesystem::path model_weight_file_name{ "yolv3.pt" };
   std::filesystem::path model_save_file_path = model_save_directory / model_weight_file_name;
 

@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(YOLOv3)
 
+if(UNIX AND NOT APPLE)
+    set(LINUX TRUE)
+endif()
+
+# if(NOT LINUX) should work, too, if you need that
+if(LINUX)
+    message("OpenCV used from default location Linux")
+else()
+    set(OpenCV_Includes "/opt/homebrew/Cellar/opencv/4.7.0_2/include/opencv4")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 
 include(FetchContent)
@@ -21,6 +32,7 @@ endif()
 
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/lib/libtorch)
 set(OpenCV_Includes "/opt/homebrew/Cellar/opencv/4.7.0_2/include/opencv4")
+set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
 
 find_package(Torch REQUIRED)
 find_package(OpenCV REQUIRED)

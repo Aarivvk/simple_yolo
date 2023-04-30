@@ -1,1 +1,1 @@
-docker run --rm -it -v$(pwd):/project -w/project --runtime=nvidia --gpus all cpptorch:latest "./scripts/compile" 
+docker run --rm --net=host -it -v$(pwd):/project -w/project --runtime=nvidia --gpus all cpptorch:latest "./scripts/compile"

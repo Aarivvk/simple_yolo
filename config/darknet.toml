@@ -1,8 +1,9 @@
 [training]
-batch_size = 16
+batch_size = 8
 number_of_workers = 10
 number_of_detections = 13
 learning_rate = 0.0001
+training_data_directory = "data/PASCAL_VOC"
 
 [yolo_model]
 input_channel = 3

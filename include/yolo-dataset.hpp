@@ -3,8 +3,10 @@
 // https://pytorch.org/cppdocs/api/classtorch_1_1data_1_1datasets_1_1_m_n_i_s_t.html#class-mnist
 
 #include <cstddef>
+#include <filesystem>
 #include <string>
 #include <vector>
+
 #include "torch/torch.h"
 
 class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
@@ -16,8 +18,7 @@ class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
     kTrain,
     kTest
   };
-
-  explicit YOLODataset(const std::string& root, Mode mode = Mode::kTrain, int s=7, int64_t img_size=416);
+  explicit YOLODataset(std::filesystem::path root, Mode mode = Mode::kTrain, int s = 7, int64_t img_size = 416);
 
   // https://pytorch.org/cppdocs/api/structtorch_1_1data_1_1_example.html#structtorch_1_1data_1_1_example
   torch::data::Example<> get(size_t index) override;
@@ -27,14 +28,17 @@ class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
   bool is_train() const noexcept;
 
  private:
-  std::vector<std::string> m_image_column, m_targets_column;
-  Mode m_mode;
-  int m_cells_s, m_num_achors;
+  YOLODataset() = default;
+  const std::filesystem::path TRAIN_CSV_FILE_NAME{ "train.csv" }, TEST_CSV_FILE_NAME{ "test.csv" },
+      CLASS_NAMES_FILE_NAME{ "class-names.csv" }, IMAGE_DIRECTORY_NAME{ "images" }, LABLE_DIRECTORY_NAME{ "labels" };
+  std::filesystem::path m_image_path{}, m_target_path{};
 
-  int64_t m_image_size;
+  Mode m_mode{};
+  int m_cells_s{}, m_num_achors{};
 
-  std::string train_csv{"train.csv"}, test_csv{"test.csv"}, names_file_name{"class-names.csv"};
-  std::string m_image_path, m_target_path;
-  std::vector<std::string>class_names{};
-  size_t m_num_class;
+  int64_t m_image_size{};
+  std::vector<std::string> m_image_column{}, m_targets_column{};
+
+  std::vector<std::string> m_class_names{};
+  size_t m_num_class{};
 };
