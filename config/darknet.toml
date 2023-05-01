@@ -1,7 +1,10 @@
 [training]
+epochs = 100
+image_width = 416
+image_height = 416
+number_of_detections = 13
 batch_size = 8
 number_of_workers = 10
-number_of_detections = 13
 learning_rate = 0.0001
 training_data_directory = "data/PASCAL_VOC"
 
@@ -10,3 +13,8 @@ input_channel = 3
 num_classes = 20
 num_anchors = 3
 layers_structure = [[32,3,1,0], [64,3,2,1], [128, 3, 2, 2], [256, 3, 2, 8], [512, 3, 2, 8], [1024, 3, 2, 4]]
+
+
+[camera]
+image_width = 640
+image_height = 480

@@ -98,18 +98,16 @@ TORCH_MODULE(YOLOBlock);
 class YOLOPredictionImpl : public torch::nn::Module
 {
  public:
-  YOLOPredictionImpl(int64_t input_channel, int64_t num_classes, int64_t number_anchors)
+  YOLOPredictionImpl(int64_t input_channel, int64_t num_classes)
       : m_num_classes{ num_classes },
-      m_number_anchors{number_anchors},
-        m_cnn_1{ input_channel, (num_classes + 5 /*x,y,w,h,obj*/), 1, 0, 1, false },
-        m_activation{torch::nn::Sigmoid()}
+        m_cnn_1{ input_channel, (num_classes + 5 /*x,y,w,h,obj*/), 1, 0, 1, false }
   {
-    register_module("Yolo_prediction", m_cnn_1);
+    register_module("Yolo_prediction_cnn1", m_cnn_1);
   }
 
   torch::Tensor forward(torch::Tensor x)
   {
-    torch::Tensor out = m_activation(m_cnn_1(x));
+    torch::Tensor out = m_cnn_1(x);
     /*  The prediction part do not have fully connected layers.
         Prediction will be in 3D convalution network.
     */
@@ -119,8 +117,7 @@ class YOLOPredictionImpl : public torch::nn::Module
 
  private:
   CNN m_cnn_1;
-  torch::nn::Sigmoid m_activation;
-  int64_t m_num_classes, m_number_anchors;
+  int64_t m_num_classes;
 };
 
 TORCH_MODULE(YOLOPrediction);
@@ -171,7 +168,7 @@ YOLOv3Impl::YOLOv3Impl(toml::node_view<toml::node> model_config)
     }
   }
 
-  m_module_list->push_back(YOLOPrediction(m_last_output, num_classes, num_anchors));
+  m_module_list->push_back(YOLOPrediction(m_last_output, num_classes));
 
   register_module("Yolo_module_v3", m_module_list);
 }

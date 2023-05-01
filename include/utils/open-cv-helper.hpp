@@ -1,3 +1,5 @@
+#ifndef FEC996AE_B209_4263_A08F_FA1D042D8E91
+#define FEC996AE_B209_4263_A08F_FA1D042D8E91
 #include <sys/types.h>
 
 #include <cmath>

@@ -8,13 +8,15 @@
 
 #include "utils/rapidcsv.h"
 
-YOLODataset::YOLODataset(std::filesystem::path root, Mode mode, int s, int64_t img_size) : YOLODataset{}
+
+YOLODataset::YOLODataset(std::filesystem::path root, Mode mode, int s, int64_t img_width, int64_t ing_height) : YOLODataset{}
 {
   m_image_path = root / IMAGE_DIRECTORY_NAME;
   m_target_path = root / LABLE_DIRECTORY_NAME;
   m_mode = mode;
   m_cells_s = s;
-  m_image_size = img_size;
+  m_image_width = img_width;
+  m_image_height = img_width;
   bool return_code = std::filesystem::exists(root);
   if (!return_code)
   {
@@ -48,7 +50,7 @@ torch::data::Example<> YOLODataset::get(size_t index)
   cv::Mat image = cv::imread(img_path);
   auto original_width = image.cols;
   auto original_height = image.rows;
-  cv::resize(image, image, cv::Size{ static_cast<int>(m_image_size), static_cast<int>(m_image_size) });
+  cv::resize(image, image, cv::Size{ static_cast<int>(m_image_width), static_cast<int>(m_image_height) });
   auto img_tensor = torch::from_blob(image.data, { image.rows, image.cols, image.channels() }, torch::kByte).clone();
   img_tensor = img_tensor.permute({ 2, 0, 1 });
   img_tensor = img_tensor.to(torch::kF32);
@@ -63,6 +65,7 @@ torch::data::Example<> YOLODataset::get(size_t index)
   std::vector<float> h_vec = targets_docs.GetColumn<float>(4);
   size_t num_marks = targets_docs.GetRowCount();
   torch::Tensor tens_target = torch::zeros({ m_cells_s, m_cells_s, static_cast<long long>((m_num_class + 5)) });
+
   for (size_t j = 0; j < num_marks; j++)
   {
     auto x = x_vec.at(j);
@@ -75,18 +78,19 @@ torch::data::Example<> YOLODataset::get(size_t index)
 
     // Calculate the targets cell number.
     uint cell_i, cell_j;
-    cell_i = y * m_cells_s;
-    cell_j = x * m_cells_s;
+    cell_i = x * m_cells_s;
+    cell_j = y * m_cells_s;
 
     // load targets [class, x, y, w, h, obj]
-    tens_target[cell_i][cell_j][class_id - 1] = 1;
+    tens_target[cell_i][cell_j][class_id] = 1;
     tens_target[cell_i][cell_j][m_num_class + 0] = x;
     tens_target[cell_i][cell_j][m_num_class + 1] = y;
     tens_target[cell_i][cell_j][m_num_class + 2] = w;
     tens_target[cell_i][cell_j][m_num_class + 3] = h;
     tens_target[cell_i][cell_j][m_num_class + 4] = 1;
   }
-  return { img_tensor, tens_target };
+
+  return { img_tensor / 255, tens_target };
 }
 
 torch::optional<size_t> YOLODataset::size() const

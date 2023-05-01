@@ -18,7 +18,7 @@ class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
     kTrain,
     kTest
   };
-  explicit YOLODataset(std::filesystem::path root, Mode mode = Mode::kTrain, int s = 7, int64_t img_size = 416);
+  explicit YOLODataset(std::filesystem::path root, Mode mode, int s, int64_t img_width, int64_t img_height);
 
   // https://pytorch.org/cppdocs/api/structtorch_1_1data_1_1_example.html#structtorch_1_1data_1_1_example
   torch::data::Example<> get(size_t index) override;
@@ -36,7 +36,7 @@ class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
   Mode m_mode{};
   int m_cells_s{}, m_num_achors{};
 
-  int64_t m_image_size{};
+  int64_t m_image_width{}, m_image_height{};
   std::vector<std::string> m_image_column{}, m_targets_column{};
 
   std::vector<std::string> m_class_names{};
