@@ -12,67 +12,124 @@
 
 #include "opencv2/core.hpp"
 
-class Target
+// https :  // docs.opencv.org/4.x/d8/dfe/classcv_1_1VideoCapture.html
+cv::VideoCapture get_camera(int width, int height)
 {
- public:
-  enum class Type
+  cv::Mat frame;
+  //--- INITIALIZE VIDEOCAPTURE
+  cv::VideoCapture cap;
+  // open the default camera using default API
+  // cap.open(0);
+  // OR advance usage: select any API backend
+  int deviceID = 0;         // 0 = open default camera
+  int apiID = cv::CAP_ANY;  // 0 = autodetect default API
+  // open selected camera using selected API
+  cap.open(deviceID, apiID);
+  // check if we succeeded
+  if (!cap.isOpened())
   {
-    MID_POINT,
-    TOP_LEFT
-  };
-  Target()
-  {
+    std::cerr << "ERROR! Unable to open camera\n";
+    exit(1);
   }
-  Target(float x, float y, float w, float h, size_t c, std::string c_name = "None", Type t = Type::MID_POINT)
-      : x{ x }, y{ y }, w{ w }, h{ h }, c{ c }, c_name{ c_name }, type(t)
-  {
-  }
-  float x{}, y{}, w{}, h{};
-  size_t c{};
-  std::string c_name{};
-  Type type{ Type::MID_POINT };
-};
-
-inline cv::Mat& mark_target(cv::Mat& image, const Target& target, size_t s = 7)
-{
-  auto x_opncv = target.x - target.w / 2;
-  auto y_opncv = target.y - target.h / 2;
-  cv::Rect rect(x_opncv, y_opncv, target.w, target.h);
-cv:
-  cv::circle(image, cv::Point(target.x, target.y), 3, cv::Scalar(255, 0, 0), 8);
-  cv::rectangle(image, rect, cv::Scalar(0, 255, 0), 2, 8, 0);
-  cv::putText(
-      image, target.c_name, cv::Point(x_opncv, y_opncv), cv::FONT_HERSHEY_DUPLEX, 1, cv::Scalar(0, 255, 0), 2, false);
-  uint i, j;
-  i = floor(target.x / (s * s));
-  j = floor(target.y / (s * s));
-  std::string cell_name{ "i= " + std::to_string(i) + " j= " + std::to_string(j) };
-  cv::putText(image, cell_name, cv::Point(0, 20), cv::FONT_HERSHEY_DUPLEX, 1, cv::Scalar(0, 255, 0), 2, false);
-  return image;
+  cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
+  cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
+  return cap;
 }
 
-inline cv::Mat& mark_cells(cv::Mat& image, const size_t s = 7)
+std::vector<int> get_selected_indexes(torch::Tensor predictions)
 {
-  for (int i = 0; i < s; i++)
-  {
-    for (int j = 0; j < s; j++)
+    auto classes = predictions.slice(2, torch::indexing::None, 20, 1);
+    auto classess_flaten = classes.flatten(0, 1);
+    auto class_indexes = classess_flaten.argmax(1);
+
+    std::vector<int> selected_index{};
+    for (size_t i = 0; i < classess_flaten.size(0); i++)
     {
-      auto cell_width = image.size().width / s;
-      auto cell_height = image.size().height / s;
-      cv::Rect rect(cell_width * i, cell_height * j, cell_height, cell_height);
-      cv::rectangle(image, rect, cv::Scalar(255, 255, 255), 1, 1, 0);
+      auto calss_prob = classess_flaten[i].index_select(0, class_indexes[i]).item<float>();
+      if (calss_prob > 0.75)
+      {
+        selected_index.push_back(i);
+      }
+    }
+
+    return selected_index;
+}
+
+void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r=true)
+{
+  std::vector<int> selected_index = get_selected_indexes(prediction);
+  auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1);
+
+  // Scale up the bounding box
+  auto x = bounding_box.slice(1, 0, 1, 1);
+  auto y = bounding_box.slice(1, 1, 2, 1);
+  auto w = bounding_box.slice(1, 2, 3, 1);
+  auto h = bounding_box.slice(1, 3, 4, 1);
+
+  x = x * frame.rows;
+  y = y * frame.cols;
+  w = w * frame.rows;
+  h = h * frame.cols;
+
+  auto rect_x1 = x - w;
+  auto rect_y1 = y - h;
+  auto rect_x2 = x + w;
+  auto rect_y2 = y + h;
+
+  for (auto& item : selected_index)
+  {
+    int x1 = static_cast<int>(rect_x1[item].item<float>());
+    int y1 = static_cast<int>(rect_y1[item].item<float>());
+    int x2 = static_cast<int>(rect_x2[item].item<float>());
+    int y2 = static_cast<int>(rect_y2[item].item<float>());
+    if(r)
+    {
+      cv::rectangle(frame, { x1, y1 }, { x2, y2 }, { 255, 0, 0 }, 3);
+    }
+    else
+    {
+      cv::rectangle(frame, { x1, y1 }, { x2, y2 }, { 0, 0, 255 }, 3);
     }
   }
-  return image;
 }
 
-inline void display_image(const cv::Mat& image)
+cv::Mat get_cv_frame(torch::Tensor t_image)
 {
-  cv::imshow("test", image);
-  cv::waitKey(1);
+  t_image = t_image.squeeze().detach().permute({1, 2, 0}).contiguous();
+  t_image = t_image.mul(255).clamp(0, 255).to(torch::kByte).to(torch::kCPU);
+  int width = t_image.size(0);
+  int height = t_image.size(1);
+  int channels = t_image.size(2);
+
+  cv::Mat output_mat(cv::Size{ height, width }, CV_8UC3, t_image.data_ptr<uchar>());
+  return output_mat.clone();
 }
 
-inline bool is_quit()
+bool display_imgae(cv::Mat& frame)
 {
-  return (cv::waitKey(0) == 'q');
+  // Display the image
+  cv::imshow("Simple YOLO", frame);
+  if (cv::waitKey(5) >= 0)
+  {
+    return false;
+  }
+  return true;
 }
+
+bool display_imgae(torch::Tensor t_image)
+{
+  cv::Mat image = get_cv_frame(t_image);
+  draw_bounding_box(t_image, image);
+  return display_imgae(image);
+}
+
+
+bool display_imgae(torch::Tensor t_image, torch::Tensor t_predict, torch::Tensor t_target)
+{
+  cv::Mat image = get_cv_frame(t_image);
+  draw_bounding_box(t_target, image, false);
+  draw_bounding_box(t_predict, image);
+  return display_imgae(image);
+}
+
+#endif /* FEC996AE_B209_4263_A08F_FA1D042D8E91 */
