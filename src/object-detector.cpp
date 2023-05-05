@@ -80,7 +80,7 @@ int main(void)
     auto output = yolov3(img_tensor);
     output = output.squeeze();
     // extract the class index
-    draw_bounding_box(output, frame);
+    draw_bounding_box(output, frame, false);
 
     run = display_imgae(frame);
   }

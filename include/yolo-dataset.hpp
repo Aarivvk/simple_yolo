@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "toml++/toml.h"
 #include "torch/torch.h"
 
 class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
@@ -16,9 +17,11 @@ class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
   enum class Mode
   {
     kTrain,
-    kTest
+    kTest,
+    kValidation,
+    kCamera
   };
-  explicit YOLODataset(std::filesystem::path root, Mode mode, int s, int64_t img_width, int64_t img_height);
+  explicit YOLODataset(Mode mode, toml::node_view<toml::node> config);
 
   // https://pytorch.org/cppdocs/api/structtorch_1_1data_1_1_example.html#structtorch_1_1data_1_1_example
   torch::data::Example<> get(size_t index) override;
@@ -29,8 +32,7 @@ class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
 
  private:
   YOLODataset() = default;
-  const std::filesystem::path TRAIN_CSV_FILE_NAME{ "train.csv" }, TEST_CSV_FILE_NAME{ "test.csv" },
-      CLASS_NAMES_FILE_NAME{ "class-names.csv" }, IMAGE_DIRECTORY_NAME{ "images" }, LABLE_DIRECTORY_NAME{ "labels" };
+  void check_file(std::filesystem::path);
   std::filesystem::path m_image_path{}, m_target_path{};
 
   Mode m_mode{};

@@ -42,7 +42,7 @@ class YOLOLossImpl : public torch::nn::Module
 
     // std::cout << "class_loss " << class_loss.item<float>() << " box_loss " << box_loss.item<float>() << " object_loss " << object_loss.item<float>() << std::endl;
     
-    return class_loss + box_loss * 10 + object_loss * 20;
+    return class_loss + box_loss + object_loss;
   }
 
  private:
