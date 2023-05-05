@@ -61,7 +61,7 @@ int main()
   auto training_config = config["training_loop"];
   double learning_rate = training_config["learning_rate"].value<double>().value();
   double momentum = training_config["momentum"].value<double>().value();
-  torch::optim::RMSprop optimizer(yolov3->parameters(), torch::optim::RMSpropOptions().lr(learning_rate).momentum(momentum));
+  torch::optim::Adam optimizer(yolov3->parameters(), torch::optim::AdamOptions().lr(learning_rate));
 
   // Preaper the data set
   uint64_t batch_size = training_config["batch_size"].value<uint64_t>().value();

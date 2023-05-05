@@ -2,13 +2,13 @@
 epochs = 250
 batch_size = 10
 number_of_workers = 10
-learning_rate = 0.001
-momentum = 0.15
+learning_rate = 0.0001
+momentum = 0.1
 display = true
 
 [data_set]
 training_data_root = "data/PASCAL_VOC"
-train_file_name = "train.csv"
+train_file_name = "100examples.csv"
 test_file_name = "test.csv"
 class_names = "class-names.csv"
 image_directory_name = "images"
