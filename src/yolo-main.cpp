@@ -16,9 +16,8 @@
 #include <string_view>
 #include <vector>
 
-#include "utils/open-cv-helper.hpp"
-
 #include "toml++/toml.h"
+#include "utils/open-cv-helper.hpp"
 #include "yolo-dataset.hpp"
 #include "yolo-loss.hpp"
 #include "yolo-model.hpp"
@@ -43,41 +42,49 @@ int main()
   std::cout << "Loading the configuration file " << config_file_path.string() << std::endl;
   auto config = toml::parse_file(config_file_path.string());
 
-  // Create the module install
-  YOLOv3 yolov3{ config["yolo_model"] };
+  auto model_config = config["yolo_model"];
+  std::filesystem::path model_save_directory{ model_config["model_path"].value<std::string>().value() };
+  std::filesystem::create_directory(model_save_directory);
+  std::filesystem::path model_weight_file_name{ model_config["model_weight_file_name"].value<std::string>().value() };
+  std::filesystem::path model_save_file_path = model_save_directory / model_weight_file_name;
+
+  // Create the module from fonfiguration
+  YOLOv3 yolov3{ model_config };
+  if (std::filesystem::exists(model_save_file_path))
+  {
+    torch::load(yolov3, model_save_file_path);
+  }
   yolov3->to(device);
 
-  auto training_config = config["training"];
+  std::cout << "Yolo model created" << std::endl;
+
+  auto training_config = config["training_loop"];
   double learning_rate = training_config["learning_rate"].value<double>().value();
-  torch::optim::Adam optimizer(yolov3->parameters(), torch::optim::AdamOptions(learning_rate));
+  double momentum = training_config["momentum"].value<double>().value();
+  torch::optim::RMSprop optimizer(yolov3->parameters(), torch::optim::RMSpropOptions().lr(learning_rate).momentum(momentum));
 
   // Preaper the data set
   uint64_t batch_size = training_config["batch_size"].value<uint64_t>().value();
   uint64_t number_of_workers = training_config["number_of_workers"].value<uint64_t>().value();
-  int number_of_detections = training_config["number_of_detections"].value<int>().value();
-  int image_width = training_config["image_width"].value<int>().value();
-  int image_height = training_config["image_height"].value<int>().value();
-  const std::string train_data_set_root = training_config["training_data_directory"].value<std::string>().value();
-  std::cout << "train_data_set_root " << train_data_set_root << std::endl;
 
-  YOLODataset y_data_set{ train_data_set_root, YOLODataset::Mode::kTrain, number_of_detections, image_width, image_height };
+  YOLODataset y_data_set{ YOLODataset::Mode::kTrain, config["data_set"] };
   auto train_data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
       y_data_set, torch::data::DataLoaderOptions().batch_size(batch_size).workers(number_of_workers));
+  
+  std::cout << "Data loader created" << std::endl;
 
   // Create the loss object
   YOLOLoss yolo_loss{};
 
   std::cout << "Start training" << std::endl;
 
-  // Set the model in training mode
-  yolov3->train();
-
   float avarage_loss = 0;
   size_t epochs = training_config["epochs"].value<size_t>().value();
-
-  for (size_t i = 0; i < epochs; i++)
+  bool run = true;
+  bool display = training_config["display"].value<bool>().value();
+  for (size_t i = 0; i < epochs && run; i++)
   {
-     yolov3->train();
+    yolov3->train();
     int64_t batch_count = 0;
     // Iterate the data loader to yield batches from the dataset.
     for (auto &batch : *train_data_loader)
@@ -89,16 +96,14 @@ int main()
       torch::Tensor batch_inputs_tensor = torch::stack(batch_inputs_vector).to(device);
       torch::Tensor batch_targets_tensor = torch::stack(batch_targets_vector).to(device);
 
-      // Reset gradients.
-      optimizer.zero_grad();
       // Do the prediction
       auto model_prediction_tensor = yolov3(batch_inputs_tensor);
       // Compute the loss
       auto loss = yolo_loss(model_prediction_tensor, batch_targets_tensor);
-
+      // Reset gradients.
+      optimizer.zero_grad();
       // Compute gradients for all trainable weights
       loss.backward();
-
       // Update the weights with gradients
       optimizer.step();
 
@@ -109,21 +114,20 @@ int main()
 
       std::cout << "Epoch " << i << " Avarage_loss = " << avarage_loss << " Batch count = " << batch_count
                 << " loss = " << loss_data << std::endl;
-
-      // bool ret = display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0]);
+      if (display)
+      {
+        run = display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0]);
+      }
+      if (!run)
+      {
+        break;
+      }
     }
   }
 
-  std::filesystem::path model_save_directory{ "saved_models" };
-  std::filesystem::create_directory(model_save_directory);
-  std::filesystem::path model_weight_file_name{ "yolv3.pt" };
-  std::filesystem::path model_save_file_path = model_save_directory / model_weight_file_name;
-
-  // Save the trained module for later reuse.
-  std::cout << "Saved the model! " << model_save_file_path << std::endl;
-  torch::save(yolov3, model_save_file_path);
-
   std::cout << "Done iterating" << std::endl;
+  torch::save(yolov3, model_save_file_path);
+  std::cout << "Saved the model! " << model_save_file_path << std::endl;
 
   return 0;
 }

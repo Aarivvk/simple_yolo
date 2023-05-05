@@ -43,8 +43,8 @@ set(CMAKE_CXX_STANDARD 17) # To use C++ <filesystem>
 
 set(Target yolo-dataset)
 add_library(${Target} yolo-dataset.cpp)
-target_link_libraries(${Target} PRIVATE ${OpenCV_LIBS} ${TORCH_LIBRARIES})
-target_include_directories(${Target} PRIVATE ${CMAKE_SOURCE_DIR}/include ${OpenCV_Includes})
+target_link_libraries(${Target} PRIVATE ${OpenCV_LIBS} ${TORCH_LIBRARIES} ${tomlplusplus_INCLUDE_DIR})
+target_include_directories(${Target} PRIVATE ${CMAKE_SOURCE_DIR}/include ${OpenCV_Includes} ${tomlplusplus_SOURCE_DIR}/include)
 
 set(Target4 yolo-model)
 add_library(${Target4} yolo-model.cpp)

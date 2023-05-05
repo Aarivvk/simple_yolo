@@ -16,11 +16,7 @@
 cv::VideoCapture get_camera(int width, int height)
 {
   cv::Mat frame;
-  //--- INITIALIZE VIDEOCAPTURE
   cv::VideoCapture cap;
-  // open the default camera using default API
-  // cap.open(0);
-  // OR advance usage: select any API backend
   int deviceID = 0;         // 0 = open default camera
   int apiID = cv::CAP_ANY;  // 0 = autodetect default API
   // open selected camera using selected API
@@ -38,27 +34,35 @@ cv::VideoCapture get_camera(int width, int height)
 
 std::vector<int> get_selected_indexes(torch::Tensor predictions)
 {
-    auto classes = predictions.slice(2, torch::indexing::None, 20, 1);
-    auto classess_flaten = classes.flatten(0, 1);
-    auto class_indexes = classess_flaten.argmax(1);
+  auto classes = predictions.slice(2, torch::indexing::None, 20, 1);
+  auto classess_flaten = classes.flatten(0, 1);
 
-    std::vector<int> selected_index{};
-    for (size_t i = 0; i < classess_flaten.size(0); i++)
-    {
-      auto calss_prob = classess_flaten[i].index_select(0, class_indexes[i]).item<float>();
-      if (calss_prob > 0.75)
-      {
-        selected_index.push_back(i);
-      }
+  auto objectness = predictions.slice(2, 24, torch::indexing::None, 1);
+  auto objectness_flaten = objectness.flatten(0, 1).squeeze();
+
+
+  std::vector<int> selected_index{};
+  for (size_t i = 0; i < classess_flaten.size(0); i++)
+  {
+    auto class_indexe = classess_flaten[i].argmax().item<int>();
+    auto calss_prob = classess_flaten[i][class_indexe].item<float>();
+    auto objectness_prob = objectness_flaten[i].item<float>();
+    if(objectness_prob > 0.5 && calss_prob > 0.5 ){
+    std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
+              << " class_index " << class_indexe << std::endl;
+    selected_index.push_back(i);
     }
+  }
 
-    return selected_index;
+  return selected_index;
 }
 
-void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r=true)
+void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r = true)
 {
+  std::cout << "____________________________________________________" << std::endl;
   std::vector<int> selected_index = get_selected_indexes(prediction);
   auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1);
+  bounding_box = bounding_box.sigmoid();
 
   // Scale up the bounding box
   auto x = bounding_box.slice(1, 0, 1, 1);
@@ -66,36 +70,38 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r=true)
   auto w = bounding_box.slice(1, 2, 3, 1);
   auto h = bounding_box.slice(1, 3, 4, 1);
 
-  x = x * frame.rows;
-  y = y * frame.cols;
-  w = w * frame.rows;
-  h = h * frame.cols;
+  x = x * frame.cols;
+  y = y * frame.rows;
+  w = w * frame.cols;
+  h = h * frame.rows;
 
-  auto rect_x1 = x - w;
-  auto rect_y1 = y - h;
-  auto rect_x2 = x + w;
-  auto rect_y2 = y + h;
+  auto rect_x1 = x + w/2;
+  auto rect_y1 = y + h/2;
+  auto rect_x2 = x - w/2;
+  auto rect_y2 = y - h/2;
 
   for (auto& item : selected_index)
   {
-    int x1 = static_cast<int>(rect_x1[item].item<float>());
-    int y1 = static_cast<int>(rect_y1[item].item<float>());
-    int x2 = static_cast<int>(rect_x2[item].item<float>());
-    int y2 = static_cast<int>(rect_y2[item].item<float>());
-    if(r)
+    int x1 = static_cast<int>(rect_x1[item].item<int>());
+    int y1 = static_cast<int>(rect_y1[item].item<int>());
+    int x2 = static_cast<int>(rect_x2[item].item<int>());
+    int y2 = static_cast<int>(rect_y2[item].item<int>());
+    if (r)
     {
       cv::rectangle(frame, { x1, y1 }, { x2, y2 }, { 255, 0, 0 }, 3);
     }
     else
     {
-      cv::rectangle(frame, { x1, y1 }, { x2, y2 }, { 0, 0, 255 }, 3);
+      cv::rectangle(frame, { x1, y1 }, { x2, y2 }, { 0, 0, 255 }, 4);
     }
   }
+  std::cout << "____________________________________________________" << std::endl;
+  std::cout << std::endl;
 }
 
 cv::Mat get_cv_frame(torch::Tensor t_image)
 {
-  t_image = t_image.squeeze().detach().permute({1, 2, 0}).contiguous();
+  t_image = t_image.squeeze().detach().permute({ 1, 2, 0 }).contiguous();
   t_image = t_image.mul(255).clamp(0, 255).to(torch::kByte).to(torch::kCPU);
   int width = t_image.size(0);
   int height = t_image.size(1);
@@ -123,12 +129,11 @@ bool display_imgae(torch::Tensor t_image)
   return display_imgae(image);
 }
 
-
 bool display_imgae(torch::Tensor t_image, torch::Tensor t_predict, torch::Tensor t_target)
 {
   cv::Mat image = get_cv_frame(t_image);
-  draw_bounding_box(t_target, image, false);
-  draw_bounding_box(t_predict, image);
+  draw_bounding_box(t_target, image);
+  draw_bounding_box(t_predict, image, false);
   return display_imgae(image);
 }
 

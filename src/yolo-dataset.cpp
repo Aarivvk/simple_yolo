@@ -6,24 +6,25 @@
 #include <opencv2/imgproc.hpp>
 #include <stdexcept>
 
+#include "toml++/toml.h"
 #include "utils/rapidcsv.h"
 
-
-YOLODataset::YOLODataset(std::filesystem::path root, Mode mode, int s, int64_t img_width, int64_t ing_height) : YOLODataset{}
+YOLODataset::YOLODataset(Mode mode, toml::node_view<toml::node> config) : YOLODataset{}
 {
-  m_image_path = root / IMAGE_DIRECTORY_NAME;
-  m_target_path = root / LABLE_DIRECTORY_NAME;
+  std::filesystem::path root = config["training_data_root"].value<std::string>().value();
+  check_file(root);
+  m_image_path = root / config["image_directory_name"].value<std::string>().value();
+  check_file(m_image_path);
+  m_target_path = root / config["lable_directory_name"].value<std::string>().value();
+  check_file(m_target_path);
   m_mode = mode;
-  m_cells_s = s;
-  m_image_width = img_width;
-  m_image_height = img_width;
-  bool return_code = std::filesystem::exists(root);
-  if (!return_code)
-  {
-    throw std::invalid_argument("Given training root directory does not exists! " + root.string());
-  }
+  m_cells_s = config["number_of_detections"].value<int>().value();
+  m_image_width = config["image_width"].value<int>().value();
+  m_image_height = config["image_height"].value<int>().value();
+
   // read class names from class-names.csv
-  std::filesystem::path names_file_path = root / CLASS_NAMES_FILE_NAME;
+  std::filesystem::path names_file_path = root / config["class_names"].value<std::string>().value();
+  check_file(names_file_path);
   rapidcsv::Document doc_names(names_file_path, rapidcsv::LabelParams(-1, -1), rapidcsv::SeparatorParams(','));
   m_class_names = doc_names.GetColumn<std::string>(0);
   m_num_class = m_class_names.size();
@@ -32,24 +33,35 @@ YOLODataset::YOLODataset(std::filesystem::path root, Mode mode, int s, int64_t i
   std::filesystem::path file_name{};
   if (is_train())
   {
-    file_name = root / TRAIN_CSV_FILE_NAME;
+    file_name = root / config["train_file_name"].value<std::string>().value();
   }
   else
   {
-    file_name = root / TEST_CSV_FILE_NAME;
+    file_name = root / config["test_file_name"].value<std::string>().value();
   }
+  check_file(file_name);
   rapidcsv::Document doc_csv(file_name, rapidcsv::LabelParams(-1, -1), rapidcsv::SeparatorParams(','));
   m_image_column = doc_csv.GetColumn<std::string>(0);
   m_targets_column = doc_csv.GetColumn<std::string>(1);
+}
+
+void YOLODataset::check_file(std::filesystem::path root)
+{
+  bool return_code = std::filesystem::exists(root);
+  if (!return_code)
+  {
+    throw std::invalid_argument("file/directory does not exists! " + root.string());
+  }
 }
 
 torch::data::Example<> YOLODataset::get(size_t index)
 {
   std::filesystem::path img_path = m_image_path / m_image_column.at(index);
   std::filesystem::path trgs_path = m_target_path / m_targets_column.at(index);
+  check_file(img_path);
+  check_file(trgs_path);
   cv::Mat image = cv::imread(img_path);
-  auto original_width = image.cols;
-  auto original_height = image.rows;
+
   cv::resize(image, image, cv::Size{ static_cast<int>(m_image_width), static_cast<int>(m_image_height) });
   auto img_tensor = torch::from_blob(image.data, { image.rows, image.cols, image.channels() }, torch::kByte).clone();
   img_tensor = img_tensor.permute({ 2, 0, 1 });
