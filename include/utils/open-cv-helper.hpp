@@ -75,10 +75,10 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r = true)
   w = w * frame.cols;
   h = h * frame.rows;
 
-  auto rect_x1 = x + w/2;
-  auto rect_y1 = y + h/2;
-  auto rect_x2 = x - w/2;
-  auto rect_y2 = y - h/2;
+  auto rect_x1 = x - w/2;
+  auto rect_y1 = y - h/2;
+  auto rect_x2 = x + w/2;
+  auto rect_y2 = y + h/2;
 
   for (auto& item : selected_index)
   {
@@ -107,7 +107,7 @@ cv::Mat get_cv_frame(torch::Tensor t_image)
   int height = t_image.size(1);
   int channels = t_image.size(2);
 
-  cv::Mat output_mat(cv::Size{ height, width }, CV_8UC3, t_image.data_ptr<uchar>());
+  cv::Mat output_mat(cv::Size{ width, height }, CV_8UC3, t_image.data_ptr<uchar>());
   return output_mat.clone();
 }
 

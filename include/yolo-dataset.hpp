@@ -18,8 +18,7 @@ class YOLODataset : public torch::data::datasets::Dataset<YOLODataset>
   {
     kTrain,
     kTest,
-    kValidation,
-    kCamera
+    kValidation
   };
   explicit YOLODataset(Mode mode, toml::node_view<toml::node> config);
 
