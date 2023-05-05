@@ -61,8 +61,11 @@ torch::data::Example<> YOLODataset::get(size_t index)
   check_file(img_path);
   check_file(trgs_path);
   cv::Mat image = cv::imread(img_path);
+  cv::Size img_size;
+  img_size.width = static_cast<int>(m_image_width);
+  img_size.height = static_cast<int>(m_image_height);
 
-  cv::resize(image, image, cv::Size{ static_cast<int>(m_image_width), static_cast<int>(m_image_height) });
+  cv::resize(image, image, img_size);
   auto img_tensor = torch::from_blob(image.data, { image.rows, image.cols, image.channels() }, torch::kByte).clone();
   img_tensor = img_tensor.permute({ 2, 0, 1 });
   img_tensor = img_tensor.to(torch::kF32);
