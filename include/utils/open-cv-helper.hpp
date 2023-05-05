@@ -47,7 +47,7 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions)
     auto class_indexe = classess_flaten[i].argmax().item<int>();
     auto calss_prob = classess_flaten[i][class_indexe].item<float>();
     auto objectness_prob = objectness_flaten[i].item<float>();
-    if(objectness_prob > 0.5 && calss_prob > 0.5 ){
+    if(objectness_prob > 0.5 ){
     std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
               << " class_index " << class_indexe << std::endl;
     selected_index.push_back(i);
@@ -62,7 +62,6 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r = true)
   std::cout << "____________________________________________________" << std::endl;
   std::vector<int> selected_index = get_selected_indexes(prediction);
   auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1);
-  bounding_box = bounding_box.sigmoid();
 
   // Scale up the bounding box
   auto x = bounding_box.slice(1, 0, 1, 1);
@@ -70,10 +69,10 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r = true)
   auto w = bounding_box.slice(1, 2, 3, 1);
   auto h = bounding_box.slice(1, 3, 4, 1);
 
-  x = x * frame.cols;
-  y = y * frame.rows;
-  w = w * frame.cols;
-  h = h * frame.rows;
+  x = x * frame.size().width;
+  y = y * frame.size().height;
+  w = w * frame.size().width;
+  h = h * frame.size().height;
 
   auto rect_x1 = x - w/2;
   auto rect_y1 = y - h/2;
@@ -88,11 +87,17 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r = true)
     int y2 = static_cast<int>(rect_y2[item].item<int>());
     if (r)
     {
-      cv::rectangle(frame, { x1, y1 }, { x2, y2 }, { 255, 0, 0 }, 3);
+      cv::Scalar blue{ 255, 0, 0 };
+      int thickness = 3;
+      cv::rectangle(frame, { x1, y1 }, { x2, y2 }, blue, thickness);
+      cv::circle(frame, { x[item].item<int>(), y[item].item<int>() }, 5, blue, thickness);
     }
     else
     {
-      cv::rectangle(frame, { x1, y1 }, { x2, y2 }, { 0, 0, 255 }, 4);
+      cv::Scalar red{ 0, 0, 255 };
+      int thickness = 4;
+      cv::rectangle(frame, { x1, y1 }, { x2, y2 }, red, thickness);
+      cv::circle(frame, { x[item].item<int>(), y[item].item<int>() }, 5, red, thickness);
     }
   }
   std::cout << "____________________________________________________" << std::endl;
@@ -106,8 +111,10 @@ cv::Mat get_cv_frame(torch::Tensor t_image)
   int width = t_image.size(0);
   int height = t_image.size(1);
   int channels = t_image.size(2);
-
-  cv::Mat output_mat(cv::Size{ width, height }, CV_8UC3, t_image.data_ptr<uchar>());
+  auto img_size = cv::Size{};
+  img_size.width = width;
+  img_size.height = height;
+  cv::Mat output_mat(img_size, CV_8UC3, t_image.data_ptr<uchar>());
   return output_mat.clone();
 }
 
