@@ -9,6 +9,7 @@
 #include <torch/nn/modules/conv.h>
 #include <torch/nn/options/conv.h>
 
+#include <csignal>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
@@ -22,8 +23,18 @@
 #include "yolo-loss.hpp"
 #include "yolo-model.hpp"
 
+bool app_run = true;
+void signalHandler(int signum)
+{
+  std::cout << "Interrupt signal (" << signum << ") received" << std::endl;
+  app_run = false;
+}
+
 int main()
 {
+  // register signal SIGINT and signal handler
+  signal(SIGINT, signalHandler);
+
   // TODO: add check for device and create accordingly.
   torch::Device device = torch::Device(torch::kCPU);
   if (torch::cuda::is_available())
@@ -70,7 +81,7 @@ int main()
   YOLODataset y_data_set{ YOLODataset::Mode::kTrain, config["data_set"] };
   auto train_data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
       y_data_set, torch::data::DataLoaderOptions().batch_size(batch_size).workers(number_of_workers));
-  
+
   std::cout << "Data loader created" << std::endl;
 
   // Create the loss object
@@ -107,7 +118,7 @@ int main()
       // Update the weights with gradients
       optimizer.step();
 
-      auto loss_data = loss.data().item<float>();
+      auto loss_data = loss.sum().data().item<float>();
       avarage_loss += loss_data;
       avarage_loss = avarage_loss / 2;
       ++batch_count;
@@ -117,6 +128,10 @@ int main()
       if (display)
       {
         run = display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0]);
+      }
+      else
+      {
+        run = app_run;
       }
       if (!run)
       {
