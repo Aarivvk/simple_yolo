@@ -40,26 +40,34 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions)
   auto objectness = predictions.slice(2, 24, torch::indexing::None, 1);
   auto objectness_flaten = objectness.flatten(0, 1).squeeze();
 
-
   std::vector<int> selected_index{};
   for (size_t i = 0; i < classess_flaten.size(0); i++)
   {
     auto class_indexe = classess_flaten[i].argmax().item<int>();
     auto calss_prob = classess_flaten[i][class_indexe].item<float>();
     auto objectness_prob = objectness_flaten[i].item<float>();
-    if(objectness_prob > 0.5 ){
-    std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
-              << " class_index " << class_indexe << std::endl;
-    selected_index.push_back(i);
+    if (objectness_prob > 0.5)
+    {
+      std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
+                << " class_index " << class_indexe << std::endl;
+      selected_index.push_back(i);
     }
   }
 
   return selected_index;
 }
 
-void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r = true)
+void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_draw)
 {
-  std::cout << "____________________________________________________" << std::endl;
+  std::string name;
+  if(target_draw)
+  {
+    name = "Target";
+  }
+  else{
+    name = "prediction";
+  }
+  std::cout << "_______________________"<<name<<"_____________________________" << std::endl;
   std::vector<int> selected_index = get_selected_indexes(prediction);
   auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1);
 
@@ -74,10 +82,10 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r = true)
   w = w * frame.size().width;
   h = h * frame.size().height;
 
-  auto rect_x1 = x - w/2;
-  auto rect_y1 = y - h/2;
-  auto rect_x2 = x + w/2;
-  auto rect_y2 = y + h/2;
+  auto rect_x1 = x - w / 2;
+  auto rect_y1 = y - h / 2;
+  auto rect_x2 = x + w / 2;
+  auto rect_y2 = y + h / 2;
 
   for (auto& item : selected_index)
   {
@@ -85,22 +93,18 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool r = true)
     int y1 = static_cast<int>(rect_y1[item].item<int>());
     int x2 = static_cast<int>(rect_x2[item].item<int>());
     int y2 = static_cast<int>(rect_y2[item].item<int>());
-    if (r)
+
+    cv::Scalar color{ 0, 0, 255 };
+    int thickness = 4;
+    if (target_draw)
     {
-      cv::Scalar blue{ 255, 0, 0 };
-      int thickness = 3;
-      cv::rectangle(frame, { x1, y1 }, { x2, y2 }, blue, thickness);
-      cv::circle(frame, { x[item].item<int>(), y[item].item<int>() }, 5, blue, thickness);
+      color = { 0, 255, 0 };
+      thickness = 2;
     }
-    else
-    {
-      cv::Scalar red{ 0, 0, 255 };
-      int thickness = 4;
-      cv::rectangle(frame, { x1, y1 }, { x2, y2 }, red, thickness);
-      cv::circle(frame, { x[item].item<int>(), y[item].item<int>() }, 5, red, thickness);
-    }
+    cv::rectangle(frame, { x1, y1 }, { x2, y2 }, color, thickness);
+    cv::circle(frame, { x[item].item<int>(), y[item].item<int>() }, 5, color, thickness);
   }
-  std::cout << "____________________________________________________" << std::endl;
+  std::cout << "_________________________"<<name<<"___________________________" << std::endl;
   std::cout << std::endl;
 }
 
@@ -132,14 +136,14 @@ bool display_imgae(cv::Mat& frame)
 bool display_imgae(torch::Tensor t_image)
 {
   cv::Mat image = get_cv_frame(t_image);
-  draw_bounding_box(t_image, image);
+  draw_bounding_box(t_image, image, false);
   return display_imgae(image);
 }
 
 bool display_imgae(torch::Tensor t_image, torch::Tensor t_predict, torch::Tensor t_target)
 {
   cv::Mat image = get_cv_frame(t_image);
-  draw_bounding_box(t_target, image);
+  draw_bounding_box(t_target, image, true);
   draw_bounding_box(t_predict, image, false);
   return display_imgae(image);
 }
