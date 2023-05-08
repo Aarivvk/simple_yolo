@@ -1,5 +1,5 @@
 build/*
 .vscode*
-training/*
 lib/libtorch
 .cache/
+data/PASCAL_VOC

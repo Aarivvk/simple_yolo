@@ -19,6 +19,7 @@
 
 #include "toml++/toml.h"
 #include "utils/open-cv-helper.hpp"
+#include "utils/matplot.hpp"
 #include "yolo-dataset.hpp"
 #include "yolo-loss.hpp"
 #include "yolo-model.hpp"
@@ -34,6 +35,9 @@ int main()
 {
   // register signal SIGINT and signal handler
   signal(SIGINT, signalHandler);
+
+  // create a data ploter for loss
+  DataPloter data_loter;
 
   // TODO: add check for device and create accordingly.
   torch::Device device = torch::Device(torch::kCPU);
@@ -122,17 +126,17 @@ int main()
       avarage_loss += loss_data;
       avarage_loss = avarage_loss / 2;
       ++batch_count;
-
+      data_loter.add_data(loss_data);
       std::cout << "Epoch " << i << " Avarage_loss = " << avarage_loss << " Batch count = " << batch_count
                 << " loss = " << loss_data << std::endl;
       if (display)
       {
         run = display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0]);
+        data_loter.show_plot();
       }
-      else
-      {
-        run = app_run;
-      }
+
+      run = app_run;
+
       if (!run)
       {
         break;
