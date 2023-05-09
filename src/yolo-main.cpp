@@ -62,6 +62,8 @@ int main()
   std::filesystem::create_directory(model_save_directory);
   std::filesystem::path model_weight_file_name{ model_config["model_weight_file_name"].value<std::string>().value() };
   std::filesystem::path model_save_file_path = model_save_directory / model_weight_file_name;
+  std::filesystem::path model_loss_graph_file_name{ model_config["model_loss_graph_file"].value<std::string>().value() };
+  std::filesystem::path model_loss_graph_file_path = model_save_directory / model_weight_file_name;
 
   // Create the module from fonfiguration
   YOLOv3 yolov3{ model_config };
@@ -132,7 +134,7 @@ int main()
       if (display)
       {
         run = display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0]);
-        data_loter.show_plot();
+        run = run && !data_loter.show_plot();
       }
 
       run = app_run;
@@ -147,6 +149,7 @@ int main()
   std::cout << "Done iterating" << std::endl;
   torch::save(yolov3, model_save_file_path);
   std::cout << "Saved the model! " << model_save_file_path << std::endl;
+  data_loter.save_graph(model_loss_graph_file_path);
 
   return 0;
 }

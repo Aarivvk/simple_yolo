@@ -13,7 +13,7 @@ class DataPloter
     m_figure = matplot::figure();
     m_figure->reactive_mode(false);
     m_figure->quiet_mode(true);
-    m_figure->should_close();
+
     m_figure->ioff();
     m_ax_h = m_figure->add_axes();
     m_main_loss_line = m_ax_h->loglog(m_los_vec);
@@ -25,9 +25,15 @@ class DataPloter
     m_main_loss_line->y_data(m_los_vec);
   }
 
-  void show_plot()
+  bool show_plot()
   {
     m_figure->draw();
+    return m_figure->should_close();
+  }
+
+  void save_graph(std::string file_name)
+  {
+    m_figure->save(file_name);
   }
 
  private:
