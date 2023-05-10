@@ -63,7 +63,7 @@ int main()
   std::filesystem::path model_weight_file_name{ model_config["model_weight_file_name"].value<std::string>().value() };
   std::filesystem::path model_save_file_path = model_save_directory / model_weight_file_name;
   std::filesystem::path model_loss_graph_file_name{ model_config["model_loss_graph_file"].value<std::string>().value() };
-  std::filesystem::path model_loss_graph_file_path = model_save_directory / model_weight_file_name;
+  std::filesystem::path model_loss_graph_file_path = model_save_directory / model_loss_graph_file_name;
 
   // Create the module from fonfiguration
   YOLOv3 yolov3{ model_config };
