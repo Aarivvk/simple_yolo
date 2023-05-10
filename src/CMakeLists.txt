@@ -9,8 +9,18 @@ endif()
 if(LINUX)
     message("OpenCV used from default location Linux")
     set(CMAKE_CUDA_COMPILER /usr/bin/nvcc)
+    include(FetchContent)
+    FetchContent_Declare(matplotplusplus
+        GIT_REPOSITORY https://github.com/alandefreitas/matplotplusplus
+        GIT_TAG origin/master) # or whatever tag you want
+        FetchContent_GetProperties(matplotplusplus)
+if(NOT matplotplusplus_POPULATED)
+    FetchContent_Populate(matplotplusplus)
+    add_subdirectory(${matplotplusplus_SOURCE_DIR} ${matplotplusplus_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
 else()
     set(OpenCV_Includes "/opt/homebrew/Cellar/opencv/4.7.0_2/include/opencv4")
+    find_package(Matplot++ REQUIRED)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -36,7 +46,7 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/lib/libtorch)
 
 find_package(Torch REQUIRED)
 find_package(OpenCV REQUIRED)
-find_package(Matplot++ REQUIRED)
+
 #find_package(CUDA 12.0 REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 set(CMAKE_CXX_STANDARD 17) # To use C++ <filesystem>
