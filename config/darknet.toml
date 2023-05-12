@@ -8,7 +8,7 @@ display = true
 
 [data_set]
 training_data_root = "data/PASCAL_VOC"
-train_file_name = "100examples.csv"
+train_file_name = "train.csv"
 test_file_name = "test.csv"
 class_names = "class-names.csv"
 image_directory_name = "images"

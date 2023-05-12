@@ -37,7 +37,7 @@ int main()
   signal(SIGINT, signalHandler);
 
   // create a data ploter for loss
-  DataPloter data_loter;
+  DataPloter data_ploter;
 
   // TODO: add check for device and create accordingly.
   torch::Device device = torch::Device(torch::kCPU);
@@ -84,9 +84,13 @@ int main()
   uint64_t batch_size = training_config["batch_size"].value<uint64_t>().value();
   uint64_t number_of_workers = training_config["number_of_workers"].value<uint64_t>().value();
 
-  YOLODataset y_data_set{ YOLODataset::Mode::kTrain, config["data_set"] };
+  YOLODataset train_data_set{ YOLODataset::Mode::kTrain, config["data_set"] };
   auto train_data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
-      y_data_set, torch::data::DataLoaderOptions().batch_size(batch_size).workers(number_of_workers));
+      train_data_set, torch::data::DataLoaderOptions().batch_size(batch_size).workers(number_of_workers));
+
+  YOLODataset test_data_set{ YOLODataset::Mode::kTest, config["data_set"] };
+  auto test_data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(
+      test_data_set, torch::data::DataLoaderOptions().batch_size(batch_size).workers(number_of_workers));
 
   std::cout << "Data loader created" << std::endl;
 
@@ -102,7 +106,7 @@ int main()
   for (size_t i = 0; i < epochs && run; i++)
   {
     yolov3->train();
-    int64_t batch_count = 0;
+    size_t batch_count = 1;
     // Iterate the data loader to yield batches from the dataset.
     for (auto &batch : *train_data_loader)
     {
@@ -127,14 +131,15 @@ int main()
       auto loss_data = loss.sum().data().item<float>();
       avarage_loss += loss_data;
       avarage_loss = avarage_loss / 2;
-      ++batch_count;
-      data_loter.add_data(loss_data);
+      
+      data_ploter.add_data(loss_data);
       std::cout << "Epoch " << i << " Avarage_loss = " << avarage_loss << " Batch count = " << batch_count
                 << " loss = " << loss_data << std::endl;
+      ++batch_count;
       if (display)
       {
         run = display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0]);
-        run = run && !data_loter.show_plot();
+        run = run && !data_ploter.show_plot();
       }
 
       run = app_run;
@@ -144,12 +149,13 @@ int main()
         break;
       }
     }
+
   }
 
   std::cout << "Done iterating" << std::endl;
   torch::save(yolov3, model_save_file_path);
   std::cout << "Saved the model! " << model_save_file_path << std::endl;
-  data_loter.save_graph(model_loss_graph_file_path);
+  data_ploter.save_graph(model_loss_graph_file_path);
 
   return 0;
 }

@@ -16,13 +16,14 @@ class DataPloter
 
     m_figure->ioff();
     m_ax_h = m_figure->add_axes();
-    m_main_loss_line = m_ax_h->loglog(m_los_vec);
-    m_main_loss_line->color("red");
+    m_train_loss_line = m_ax_h->loglog(m_train_los_vec);
+    m_train_loss_line->color("red");
+    m_validation_loss_line = m_ax_h->loglog(m_train_los_vec);
   }
   void add_data(double loss)
   {
-    m_los_vec.push_back(loss);
-    m_main_loss_line->y_data(m_los_vec);
+    m_train_los_vec.push_back(loss);
+    m_train_loss_line->y_data(m_train_los_vec);
   }
 
   bool show_plot()
@@ -37,10 +38,11 @@ class DataPloter
   }
 
  private:
-  std::vector<double> m_los_vec;
+  std::vector<double> m_train_los_vec;
   matplot::figure_handle m_figure;
   matplot::axes_handle m_ax_h;
-  matplot::line_handle m_main_loss_line;
+  matplot::line_handle m_train_loss_line;
+  matplot::line_handle m_validation_loss_line;
 };
 
 #endif /* BAB5ADEF_3FDC_40A5_A25E_7750FFDCAD4A */
