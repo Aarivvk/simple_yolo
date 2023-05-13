@@ -1,6 +1,7 @@
 #include <ATen/core/TensorBody.h>
 #include <ATen/ops/cat.h>
 #include <ATen/ops/zero.h>
+#include <ATen/ops/zeros.h>
 #include <c10/core/Backend.h>
 #include <c10/core/Device.h>
 #include <c10/core/DeviceType.h>
@@ -18,8 +19,8 @@
 #include <vector>
 
 #include "toml++/toml.h"
-#include "utils/open-cv-helper.hpp"
 #include "utils/matplot.hpp"
+#include "utils/open-cv-helper.hpp"
 #include "yolo-dataset.hpp"
 #include "yolo-loss.hpp"
 #include "yolo-model.hpp"
@@ -99,14 +100,16 @@ int main()
 
   std::cout << "Start training" << std::endl;
 
-  float avarage_loss = 0;
+  torch::Tensor train_avarage_loss = torch::zeros({1});
+  torch::Tensor test_avarage_loss = torch::zeros({1});
   size_t epochs = training_config["epochs"].value<size_t>().value();
   bool run = true;
   bool display = training_config["display"].value<bool>().value();
   for (size_t i = 0; i < epochs && run; i++)
   {
     yolov3->train();
-    size_t batch_count = 1;
+    yolo_loss->train();
+    size_t train_batch_count = 0, validation_batch_count = 0;
     // Iterate the data loader to yield batches from the dataset.
     for (auto &batch : *train_data_loader)
     {
@@ -128,28 +131,60 @@ int main()
       // Update the weights with gradients
       optimizer.step();
 
-      auto loss_data = loss.sum().data().item<float>();
-      avarage_loss += loss_data;
-      avarage_loss = avarage_loss / 2;
+      train_avarage_loss = train_avarage_loss + loss;
+      auto loss_data = train_avarage_loss.mean().data().item<float>();
+      std::cout << '\r' << "Epoch " << i << " Avrage loss train = " << loss_data << std::flush;
+      data_ploter.add_data_train(loss_data, train_batch_count);
       
-      data_ploter.add_data(loss_data);
-      std::cout << "Epoch " << i << " Avarage_loss = " << avarage_loss << " Batch count = " << batch_count
-                << " loss = " << loss_data << std::endl;
-      ++batch_count;
       if (display)
       {
         run = display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0]);
         run = run && !data_ploter.show_plot();
       }
-
-      run = app_run;
-
+      run = run && app_run;
       if (!run)
       {
         break;
       }
+      ++train_batch_count;
     }
 
+    std::cout << std::endl;
+
+    yolov3->eval();
+    yolo_loss->eval();
+
+    for (auto &batch : *test_data_loader)
+    {
+      // https://discuss.pytorch.org/t/converting-std-vector-example-into-an-input-tensor-in-c/81549
+      std::vector<torch::Tensor> batch_inputs_vector, batch_targets_vector;
+      std::transform(batch.begin(), batch.end(), std::back_inserter(batch_inputs_vector), [](auto &e) { return e.data; });
+      std::transform(batch.begin(), batch.end(), std::back_inserter(batch_targets_vector), [](auto &e) { return e.target; });
+      torch::Tensor batch_inputs_tensor = torch::stack(batch_inputs_vector).to(device);
+      torch::Tensor batch_targets_tensor = torch::stack(batch_targets_vector).to(device);
+
+      // Do the prediction
+      auto model_prediction_tensor = yolov3(batch_inputs_tensor);
+      // Compute the loss
+      auto loss = yolo_loss(model_prediction_tensor, batch_targets_tensor);
+
+      test_avarage_loss = test_avarage_loss + loss;
+      auto loss_data = test_avarage_loss.mean().data().item<float>();
+      std::cout << '\r' << "Epoch " << i << " Avrage loss validation = " << loss_data << std::flush;
+      data_ploter.add_data_validation(loss_data, validation_batch_count);
+      
+      if (display)
+      {
+        run = display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0]);
+        run = run && !data_ploter.show_plot();
+      }
+      run = run && app_run;
+      if (!run)
+      {
+        break;
+      }
+      ++validation_batch_count;
+    }
   }
 
   std::cout << "Done iterating" << std::endl;

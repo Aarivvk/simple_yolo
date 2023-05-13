@@ -48,8 +48,8 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions)
     auto objectness_prob = objectness_flaten[i].item<float>();
     if (objectness_prob > 0.5)
     {
-      std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
-                << " class_index " << class_indexe << std::endl;
+      // std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
+      //           << " class_index " << class_indexe << std::endl;
       selected_index.push_back(i);
     }
   }
@@ -67,7 +67,7 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
   else{
     name = "prediction";
   }
-  std::cout << "_______________________"<<name<<"_____________________________" << std::endl;
+  // std::cout << "_______________________"<<name<<"_____________________________" << std::endl;
   std::vector<int> selected_index = get_selected_indexes(prediction);
   auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1);
 
@@ -104,8 +104,8 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
     cv::rectangle(frame, { x1, y1 }, { x2, y2 }, color, thickness);
     cv::circle(frame, { x[item].item<int>(), y[item].item<int>() }, 5, color, thickness);
   }
-  std::cout << "_________________________"<<name<<"___________________________" << std::endl;
-  std::cout << std::endl;
+  // std::cout << "_________________________"<<name<<"___________________________" << std::endl;
+  // std::cout << std::endl;
 }
 
 cv::Mat get_cv_frame(torch::Tensor t_image)

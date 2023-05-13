@@ -1,6 +1,7 @@
 #ifndef BAB5ADEF_3FDC_40A5_A25E_7750FFDCAD4A
 #define BAB5ADEF_3FDC_40A5_A25E_7750FFDCAD4A
 #include <matplot/matplot.h>
+#include <sys/_types/_size_t.h>
 
 #include <unordered_map>
 #include <vector>
@@ -13,21 +14,23 @@ class DataPloter
     m_figure = matplot::figure();
     m_figure->reactive_mode(false);
     m_figure->quiet_mode(true);
-
     m_figure->ioff();
-    m_ax_h = m_figure->add_axes();
-    m_train_loss_line = m_ax_h->loglog(m_train_los_vec);
-    m_train_loss_line->color("red");
-    m_validation_loss_line = m_ax_h->loglog(m_train_los_vec);
   }
-  void add_data(double loss)
+  void add_data_train(double loss, size_t x)
   {
-    m_train_los_vec.push_back(loss);
-    m_train_loss_line->y_data(m_train_los_vec);
+    m_train_loss_vec.push_back(loss);
+    m_train_x_vec.push_back(x);
+  }
+
+  void add_data_validation(double loss, size_t x)
+  {
+    m_validation_x_vec.push_back(x);
+    m_validation_loss_vec.push_back(loss);
   }
 
   bool show_plot()
   {
+    matplot::plot(m_train_x_vec, m_train_loss_vec, "g", m_validation_x_vec, m_validation_loss_vec, "b--o");
     m_figure->draw();
     return m_figure->should_close();
   }
@@ -38,11 +41,9 @@ class DataPloter
   }
 
  private:
-  std::vector<double> m_train_los_vec;
+  std::vector<double> m_train_loss_vec, m_validation_loss_vec;
+  std::vector<double> m_train_x_vec, m_validation_x_vec;
   matplot::figure_handle m_figure;
-  matplot::axes_handle m_ax_h;
-  matplot::line_handle m_train_loss_line;
-  matplot::line_handle m_validation_loss_line;
 };
 
 #endif /* BAB5ADEF_3FDC_40A5_A25E_7750FFDCAD4A */
