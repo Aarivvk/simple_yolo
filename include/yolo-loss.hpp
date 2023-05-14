@@ -23,7 +23,11 @@ class YOLOLossImpl : public torch::nn::Module
     auto wh_prediction = predictions.slice(3, 22, 24, 1);
     auto wh_loss = m_mse_loss(wh_prediction, wh_lable);
 
-    return object_loss + center_loss + wh_loss;
+    auto class_lable = targets.slice(3, 0, 20, 1);
+    auto class_prediction = predictions.slice(3, 0, 20, 1);
+    auto class_loss = m_cross_entropy_loss(class_prediction, class_lable);
+
+    return object_loss + center_loss + wh_loss + class_loss;
   }
 
  private:
