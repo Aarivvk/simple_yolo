@@ -41,7 +41,7 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions)
   auto objectness_flaten = objectness.flatten(0, 1).squeeze();
 
   std::vector<int> selected_index{};
-  for (size_t i = 0; i < classess_flaten.size(0); i++)
+  for (size_t i = 0; i < objectness_flaten.size(0); i++)
   {
     auto class_indexe = classess_flaten[i].argmax().item<int>();
     auto calss_prob = classess_flaten[i][class_indexe].item<float>();
@@ -71,6 +71,9 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
   std::vector<int> selected_index = get_selected_indexes(prediction);
   auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1);
 
+  auto classes = prediction.slice(2, torch::indexing::None, 20, 1);
+  auto classess_flaten = classes.flatten(0, 1);
+
   // Scale up the bounding box
   auto x = bounding_box.slice(1, 0, 1, 1);
   auto y = bounding_box.slice(1, 1, 2, 1);
@@ -89,6 +92,9 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
 
   for (auto& item : selected_index)
   {
+     auto class_indexe = classess_flaten[item].argmax().item<int>();
+     auto calss_prob = classess_flaten[item][class_indexe].item<float>();
+
     int x1 = static_cast<int>(rect_x1[item].item<int>());
     int y1 = static_cast<int>(rect_y1[item].item<int>());
     int x2 = static_cast<int>(rect_x2[item].item<int>());
@@ -103,6 +109,8 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
     }
     cv::rectangle(frame, { x1, y1 }, { x2, y2 }, color, thickness);
     cv::circle(frame, { x[item].item<int>(), y[item].item<int>() }, 5, color, thickness);
+    std::string class_number_probability = "id=" + std::to_string(class_indexe) + " c=" + std::to_string(calss_prob);
+    cv::putText(frame, class_number_probability, {x1, y1-3}, cv::FONT_HERSHEY_SIMPLEX, 0.6, color, thickness);
   }
   // std::cout << "_________________________"<<name<<"___________________________" << std::endl;
   // std::cout << std::endl;
