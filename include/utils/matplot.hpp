@@ -30,7 +30,10 @@ class DataPloter
   bool show_plot()
   {
     plot_data();
-    m_figure->draw();
+    if(m_train_x_vec.size() > 0 || m_validation_x_vec.size() > 0)
+    {
+      m_figure->draw();
+    }
     return m_figure->should_close();
   }
 
@@ -49,15 +52,18 @@ class DataPloter
   {
     if (m_train_x_vec.size() > 0)
     {
-      auto p_train = matplot::loglog(m_train_x_vec, m_train_loss_vec, "g");
+      auto p_train = matplot::plot(m_train_x_vec, m_train_loss_vec, "g");
       p_train->line_width(2);
     }
+    matplot::hold(matplot::on);
 
     if (m_validation_x_vec.size() > 0)
     {
-      auto p_test = matplot::loglog(m_validation_x_vec, m_validation_loss_vec, "b");
+      auto p_test = matplot::plot(m_validation_x_vec, m_validation_loss_vec, "b");
+      p_test->use_y2();
       p_test->line_width(2);
     }
+    matplot::hold(matplot::off);
   }
 };
 
