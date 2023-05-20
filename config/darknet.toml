@@ -1,27 +1,27 @@
 [training_loop]
-epochs = 500
-batch_size = 6
+epochs = 100
+batch_size = 10
 number_of_workers = 10
-learning_rate = 0.0001
+learning_rate = 0.001
 momentum = 0.1
 display = true
 
 [data_set]
 training_data_root = "data/PASCAL_VOC"
-train_file_name = "100examples.csv"
+train_file_name = "train.csv"
 test_file_name = "test.csv"
 class_names = "class-names.csv"
 image_directory_name = "images"
 lable_directory_name = "labels"
-image_width = 416
-image_height = 416
-number_of_detections = 13
+image_width = 216
+image_height = 216
+number_of_detections = 7
 
 [yolo_model]
 input_channel = 3
 num_classes = 20
 num_anchors = 3
-layers_structure = [[32,3,1,0], [64,3,2,1], [128, 3, 2, 4], [256, 3, 2, 10], [512, 3, 2, 10], [1024, 3, 2, 4]]
+layers_structure = [[32,3,1,0], [32,3,1,0], [64,3,2,1], [128, 3, 2, 4], [256, 3, 2, 10], [512, 3, 2, 10], [1024, 3, 2, 4]]
 model_path = "saved_models"
 model_weight_file_name = "yolv3.pt"
 model_loss_graph_file = "loss.png"

@@ -9,14 +9,14 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <string>
-
+#include <torch/nn/modules/activation.h>
 #include "opencv2/core.hpp"
 
 // https :  // docs.opencv.org/4.x/d8/dfe/classcv_1_1VideoCapture.html
 cv::VideoCapture get_camera(int width, int height)
 {
   cv::Mat frame;
-  cv::VideoCapture cap;
+  cv::VideoCapture cap(0);
   int deviceID = 0;         // 0 = open default camera
   int apiID = cv::CAP_ANY;  // 0 = autodetect default API
   // open selected camera using selected API
@@ -34,11 +34,12 @@ cv::VideoCapture get_camera(int width, int height)
 
 std::vector<int> get_selected_indexes(torch::Tensor predictions)
 {
+  torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
   auto classes = predictions.slice(2, torch::indexing::None, 20, 1);
-  auto classess_flaten = classes.flatten(0, 1);
+  auto classess_flaten = softmax(classes.flatten(0, 1));
 
   auto objectness = predictions.slice(2, 24, torch::indexing::None, 1);
-  auto objectness_flaten = objectness.flatten(0, 1).squeeze();
+  auto objectness_flaten = objectness.flatten(0, 1).squeeze().sigmoid();
 
   std::vector<int> selected_index{};
   for (size_t i = 0; i < objectness_flaten.size(0); i++)
@@ -48,7 +49,8 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions)
     auto objectness_prob = objectness_flaten[i].item<float>();
     if (objectness_prob > 0.5)
     {
-      // std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
+      // std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " <<
+      // calss_prob
       //           << " class_index " << class_indexe << std::endl;
       selected_index.push_back(i);
     }
@@ -60,19 +62,21 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions)
 void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_draw)
 {
   std::string name;
-  if(target_draw)
+  if (target_draw)
   {
     name = "Target";
   }
-  else{
+  else
+  {
     name = "prediction";
   }
   // std::cout << "_______________________"<<name<<"_____________________________" << std::endl;
   std::vector<int> selected_index = get_selected_indexes(prediction);
-  auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1);
+  auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1).sigmoid();
 
   auto classes = prediction.slice(2, torch::indexing::None, 20, 1);
-  auto classess_flaten = classes.flatten(0, 1);
+  torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
+  auto classess_flaten = softmax(classes.flatten(0, 1));
 
   // Scale up the bounding box
   auto x = bounding_box.slice(1, 0, 1, 1);
@@ -92,8 +96,8 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
 
   for (auto& item : selected_index)
   {
-     auto class_indexe = classess_flaten[item].argmax().item<int>();
-     auto calss_prob = classess_flaten[item][class_indexe].item<float>();
+    auto class_indexe = classess_flaten[item].argmax().item<int>();
+    auto calss_prob = classess_flaten[item][class_indexe].item<float>();
 
     int x1 = static_cast<int>(rect_x1[item].item<int>());
     int y1 = static_cast<int>(rect_y1[item].item<int>());
@@ -101,7 +105,7 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
     int y2 = static_cast<int>(rect_y2[item].item<int>());
 
     cv::Scalar color{ 0, 0, 255 };
-    int thickness = 4;
+    int thickness = 2;
     if (target_draw)
     {
       color = { 0, 255, 0 };
@@ -110,7 +114,7 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
     cv::rectangle(frame, { x1, y1 }, { x2, y2 }, color, thickness);
     cv::circle(frame, { x[item].item<int>(), y[item].item<int>() }, 5, color, thickness);
     std::string class_number_probability = "id=" + std::to_string(class_indexe) + " c=" + std::to_string(calss_prob);
-    cv::putText(frame, class_number_probability, {x1, y1-3}, cv::FONT_HERSHEY_SIMPLEX, 0.6, color, thickness);
+    cv::putText(frame, class_number_probability, { x1, y1 - 3 }, cv::FONT_HERSHEY_SIMPLEX, 0.6, color, thickness);
   }
   // std::cout << "_________________________"<<name<<"___________________________" << std::endl;
   // std::cout << std::endl;

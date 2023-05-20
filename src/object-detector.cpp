@@ -54,8 +54,8 @@ int main(void)
 
   // Draw the bounding box and class on the original image with confidance.
 
-  int width_r = config["training"]["image_width"].value<int>().value();
-  int height_r = config["training"]["image_height"].value<int>().value();
+  int width_r = config["data_set"]["image_width"].value<int>().value();
+  int height_r = config["data_set"]["image_height"].value<int>().value();
   cv::Mat frame, r_frame;
   bool run{true};
   while (run)
@@ -66,10 +66,10 @@ int main(void)
       std::cerr << "ERROR! blank frame grabbed\n";
     }
 
-    cv::resize(frame, frame, { width_r, height_r });
+    cv::resize(frame, r_frame, { width_r, height_r });
 
     // Convert the cv::Mat to torch::tensor
-    auto img_tensor = torch::from_blob(frame.data, { frame.rows, frame.cols, frame.channels() }, torch::kByte).clone();
+    auto img_tensor = torch::from_blob(r_frame.data, { r_frame.rows, r_frame.cols, r_frame.channels() }, torch::kByte).clone();
     img_tensor = img_tensor.permute({ 2, 0, 1 });
     img_tensor = img_tensor.to(torch::kF32);
     img_tensor = img_tensor.unsqueeze(0);
