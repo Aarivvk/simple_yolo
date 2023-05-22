@@ -1,8 +1,8 @@
 [training_loop]
-epochs = 100
+epochs = 6
 batch_size = 10
 number_of_workers = 10
-learning_rate = 0.001
+learning_rate = 0.0001
 momentum = 0.1
 display = true
 
@@ -21,7 +21,7 @@ number_of_detections = 7
 input_channel = 3
 num_classes = 20
 num_anchors = 3
-layers_structure = [[32,3,1,0], [32,3,1,0], [64,3,2,1], [128, 3, 2, 4], [256, 3, 2, 10], [512, 3, 2, 10], [1024, 3, 2, 4]]
+layers_structure = [[32,3,1,0], [64,3,1,0], [128,3,1,1], [64,3,2,2], [128, 3, 2, 4], [256, 3, 2, 10], [512, 3, 2, 10], [1024, 3, 2, 4]]
 model_path = "saved_models"
 model_weight_file_name = "yolv3.pt"
 model_loss_graph_file = "loss.png"
