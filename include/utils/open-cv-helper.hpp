@@ -1,6 +1,7 @@
 #ifndef FEC996AE_B209_4263_A08F_FA1D042D8E91
 #define FEC996AE_B209_4263_A08F_FA1D042D8E91
 #include <sys/types.h>
+#include <torch/nn/modules/activation.h>
 
 #include <cmath>
 #include <cstddef>
@@ -9,7 +10,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <string>
-#include <torch/nn/modules/activation.h>
+
 #include "opencv2/core.hpp"
 
 // https :  // docs.opencv.org/4.x/d8/dfe/classcv_1_1VideoCapture.html
@@ -32,14 +33,19 @@ cv::VideoCapture get_camera(int width, int height)
   return cap;
 }
 
-std::vector<int> get_selected_indexes(torch::Tensor predictions)
+std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_draw)
 {
-  torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
   auto classes = predictions.slice(2, torch::indexing::None, 20, 1);
-  auto classess_flaten = softmax(classes.flatten(0, 1));
+  torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
+  auto classess_flaten = classes.flatten(0, 1);
 
   auto objectness = predictions.slice(2, 24, torch::indexing::None, 1);
-  auto objectness_flaten = objectness.flatten(0, 1).squeeze().sigmoid();
+  auto objectness_flaten = objectness.flatten(0, 1).squeeze();
+  if (!target_draw)
+  {
+    classess_flaten = softmax(classess_flaten);
+    objectness_flaten = objectness_flaten.sigmoid();
+  }
 
   std::vector<int> selected_index{};
   for (size_t i = 0; i < objectness_flaten.size(0); i++)
@@ -49,9 +55,8 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions)
     auto objectness_prob = objectness_flaten[i].item<float>();
     if (objectness_prob > 0.5)
     {
-      // std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " <<
-      // calss_prob
-      //           << " class_index " << class_indexe << std::endl;
+      std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
+                << " class_index " << class_indexe << std::endl;
       selected_index.push_back(i);
     }
   }
@@ -70,13 +75,19 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
   {
     name = "prediction";
   }
-  // std::cout << "_______________________"<<name<<"_____________________________" << std::endl;
-  std::vector<int> selected_index = get_selected_indexes(prediction);
-  auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1).sigmoid();
+  std::cout << std::endl << "_______________________" << name << "_____________________________" << std::endl;
+  std::vector<int> selected_index = get_selected_indexes(prediction, target_draw);
+  auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1);
 
   auto classes = prediction.slice(2, torch::indexing::None, 20, 1);
-  torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
-  auto classess_flaten = softmax(classes.flatten(0, 1));
+  auto classess_flaten = classes.flatten(0, 1);
+  
+  if (!target_draw)
+  {
+    bounding_box = bounding_box.sigmoid();
+    torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
+    classess_flaten = softmax(classess_flaten);
+  }
 
   // Scale up the bounding box
   auto x = bounding_box.slice(1, 0, 1, 1);
@@ -116,8 +127,8 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
     std::string class_number_probability = "id=" + std::to_string(class_indexe) + " c=" + std::to_string(calss_prob);
     cv::putText(frame, class_number_probability, { x1, y1 - 3 }, cv::FONT_HERSHEY_SIMPLEX, 0.6, color, thickness);
   }
-  // std::cout << "_________________________"<<name<<"___________________________" << std::endl;
-  // std::cout << std::endl;
+  std::cout << "_________________________" << name << "___________________________" << std::endl;
+  std::cout << std::endl;
 }
 
 cv::Mat get_cv_frame(torch::Tensor t_image)

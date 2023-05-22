@@ -12,20 +12,24 @@ class YOLOLossImpl : public torch::nn::Module
   torch::Tensor forward(torch::Tensor predictions, torch::Tensor targets)
   {
     auto bojectness_labels = targets.slice(3, 24, 25, 1);
-    auto bojectness_predictions = predictions.slice(3, 24, 25, 1).sigmoid();
+    auto bojectness_predictions = predictions.slice(3, 24, 25, 1);
     auto object_loss = m_bce(bojectness_predictions, bojectness_labels);
 
     auto center_lable = targets.slice(3, 20, 22, 1);
     auto center_prediction = predictions.slice(3, 20, 22, 1).sigmoid();
     auto center_loss = m_mse_loss(center_prediction, center_lable);
 
-    auto wh_lable = targets.slice(3, 22, 24, 1);
-    auto wh_prediction = predictions.slice(3, 22, 24, 1).sigmoid();
-    auto wh_loss = m_mse_loss(wh_prediction, wh_lable);
+    auto w_lable = targets.slice(3, 22, 23, 1);
+    auto w_prediction = predictions.slice(3, 22, 23, 1).sigmoid();
+    auto w_loss = m_mse_loss(w_prediction, w_lable);
+
+    auto h_lable = targets.slice(3, 23, 24, 1);
+    auto h_prediction = predictions.slice(3, 23, 24, 1).sigmoid();
+    auto h_loss = m_mse_loss(h_prediction, h_lable);
 
     auto class_lable = targets.slice(3, 0, 20, 1).permute({0, 3, 1, 2});
-    torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
-    auto class_prediction = softmax(predictions.slice(3, 0, 20, 1).permute({0, 3, 1, 2}));
+    // torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
+    auto class_prediction = predictions.slice(3, 0, 20, 1).permute({0, 3, 1, 2});
     auto class_loss = m_cross_entropy_loss(class_prediction, class_lable);
 
     // std::cout << "object_loss " << object_loss << std::endl;
@@ -33,7 +37,7 @@ class YOLOLossImpl : public torch::nn::Module
     // std::cout << "wh_loss " << wh_loss << std::endl;
     // std::cout << "class_loss " << center_loss << std::endl << std::endl;
 
-    return object_loss + center_loss + wh_loss + class_loss;
+    return object_loss + center_loss + w_loss + h_loss + class_loss;
   }
 
  private:

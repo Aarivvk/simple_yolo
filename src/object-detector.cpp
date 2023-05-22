@@ -44,6 +44,7 @@ int main(void)
   yolov3->eval();
   // Move model to the device.
   yolov3->to(device);
+  std::cout << yolov3 << std::endl;
 
   // Preaper the camera feed.
   int width = config["camera"]["image_width"].value<int>().value();
