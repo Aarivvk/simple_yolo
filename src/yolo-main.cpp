@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <iostream>
 #include <ostream>
+#include <fstream>
 #include <string_view>
 #include <vector>
 
@@ -79,7 +80,9 @@ int main()
   auto training_config = config["training_loop"];
   double learning_rate = training_config["learning_rate"].value<double>().value();
   double momentum = training_config["momentum"].value<double>().value();
-  torch::optim::Adam optimizer(yolov3->parameters(), torch::optim::AdamOptions().lr(learning_rate));
+  double weight_decay = training_config["weight_decay"].value<double>().value();
+  // torch::optim::Adam optimizer(yolov3->parameters(), torch::optim::AdamOptions().lr(learning_rate).weight_decay(weight_decay));
+  torch::optim::AdamW optimizer(yolov3->parameters(), torch::optim::AdamWOptions().lr(learning_rate).weight_decay(weight_decay));
 
   // Preaper the data set
   uint64_t batch_size = training_config["batch_size"].value<uint64_t>().value();
@@ -138,7 +141,7 @@ int main()
 
       // auto loss_cpu = loss.clone().to(torch::kCPU);
       // train_avarage_loss = train_avarage_loss + loss;
-      auto loss_data = loss.sum().item<float>();
+      auto loss_data = loss.sum().item<double>();
       std::cout << '\r' << "Epoch " << i << " loss train = " << loss_data
                 << " train_batch_count = " << train_batch_count * batch_size << "/" << train_data_size << std::flush;
       torch::Tensor local_loss = torch::zeros({ 1 }).to(device);
@@ -157,7 +160,7 @@ int main()
       }
       ++train_batch_count;
     }
-    data_ploter.add_data_train(epoch_loss.mean().data().item<float>(), i);
+    data_ploter.add_data_train(epoch_loss.mean().data().item<double>(), i);
 
     std::cout << std::endl;
     {
@@ -212,8 +215,11 @@ int main()
 
   std::cout << "Done iterating" << std::endl;
   torch::save(yolov3, model_save_file_path);
-  std::cout << "Saved the model! " << model_save_file_path << std::endl;
+  std::cout << "Saved the model! " << model_save_directory << std::endl;
   data_ploter.save_graph(model_loss_graph_file_path);
+  std::ofstream ofs(model_save_directory/config_file);
+  ofs << config << std::flush; 
+  ofs.close();
 
   return 0;
 }

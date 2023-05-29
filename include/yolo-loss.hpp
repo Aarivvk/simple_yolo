@@ -15,9 +15,13 @@ class YOLOLossImpl : public torch::nn::Module
     auto bojectness_predictions = predictions.slice(3, 24, 25, 1);
     auto object_loss = m_bce(bojectness_predictions, bojectness_labels);
 
-    auto center_lable = targets.slice(3, 20, 22, 1);
-    auto center_prediction = predictions.slice(3, 20, 22, 1).sigmoid();
-    auto center_loss = m_mse_loss(center_prediction, center_lable);
+    auto center_x_lable = targets.slice(3, 20, 21, 1);
+    auto center_x_prediction = predictions.slice(3, 20, 21, 1).sigmoid();
+    auto center_x_loss = m_mse_loss(center_x_prediction, center_x_lable);
+
+    auto center_y_lable = targets.slice(3, 21, 22, 1);
+    auto center_y_prediction = predictions.slice(3, 21, 22, 1).sigmoid();
+    auto center_y_loss = m_mse_loss(center_y_prediction, center_y_lable);
 
     auto w_lable = targets.slice(3, 22, 23, 1);
     auto w_prediction = predictions.slice(3, 22, 23, 1).sigmoid();
@@ -27,17 +31,59 @@ class YOLOLossImpl : public torch::nn::Module
     auto h_prediction = predictions.slice(3, 23, 24, 1).sigmoid();
     auto h_loss = m_mse_loss(h_prediction, h_lable);
 
-    auto class_lable = targets.slice(3, 0, 20, 1).permute({0, 3, 1, 2});
+    auto class_lable = targets.slice(3, 0, 20, 1).permute({ 0, 3, 1, 2 });
     // torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
-    auto class_prediction = predictions.slice(3, 0, 20, 1).permute({0, 3, 1, 2});
+    auto class_prediction = predictions.slice(3, 0, 20, 1).permute({ 0, 3, 1, 2 });
     auto class_loss = m_cross_entropy_loss(class_prediction, class_lable);
+
+    // auto boxes_lable = targets.slice(3, 20, 24, 1);
+    // auto boxes_predition = predictions.slice(3, 20, 24, 1).sigmoid();
+    // auto iou = IOU(boxes_predition, boxes_lable);
 
     // std::cout << "object_loss " << object_loss << std::endl;
     // std::cout << "center_loss " << center_loss << std::endl;
     // std::cout << "wh_loss " << wh_loss << std::endl;
     // std::cout << "class_loss " << center_loss << std::endl << std::endl;
 
-    return object_loss + center_loss + w_loss + h_loss + class_loss;
+    return object_loss + center_x_loss + center_y_loss + w_loss + h_loss + class_loss;
+  }
+
+  double accuracy(torch::Tensor predictions, torch::Tensor targets)
+  {
+    uint64 true_positive = 0, false_positive = 0;
+    double Precision{};
+    auto classes = predictions.slice(2, torch::indexing::None, 20, 1);
+    torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
+    auto classess_flaten = classes.flatten(1, 2);
+
+    auto objectness = predictions.slice(2, 24, torch::indexing::None, 1);
+    auto objectness_flaten = objectness.flatten(1, 2).squeeze();
+    classess_flaten = softmax(classess_flaten);
+    objectness_flaten = objectness_flaten.sigmoid();
+    size_t batch_size = predictions.size(0);
+    size_t number_of_detections = objectness_flaten.size(1);
+
+
+    std::vector<int> selected_index{};
+    for (size_t i = 0; i < batch_size; i++)
+    {
+      for(size_t j=0; j<number_of_detections; j++ )
+      {
+        auto class_indexe = classess_flaten[i][j].argmax().item<int>();
+        auto calss_prob = classess_flaten[i][j][class_indexe].item<double>();
+        auto objectness_prob = objectness_flaten[i][j].item<double>();
+      if (objectness_prob > 0.5)
+      {
+        std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob "
+                  << calss_prob << " class_index " << class_indexe << std::endl;
+        selected_index.push_back(i);
+      }
+
+      }
+
+    }
+
+    return Precision;
   }
 
  private:
