@@ -28,15 +28,27 @@ int main(void)
   std::filesystem::path config_file("darknet.toml");
   std::filesystem::path config_file_path = config_directory / config_file;
   std::cout << "Loading the configuration file " << config_file_path.string() << std::endl;
-  auto config = toml::parse_file(config_file_path.string());
+  auto config_running = toml::parse_file(config_file_path.string());
+  std::filesystem::path model_save_directory{ config_running["yolo_model"]["model_path"].value<std::string>().value() };
+  std::filesystem::path config_file_saved = model_save_directory / config_file;
+  auto config = toml::parse_file(config_file_saved.string());
 
   // Create the module from configurations
   YOLOv3 yolov3{ config["yolo_model"] };
-  std::filesystem::path model_save_directory{ "saved_models" };
-  std::filesystem::create_directory(model_save_directory);
-  std::filesystem::path model_weight_file_name{ "yolv3.pt" };
+
+  
+  std::filesystem::path model_weight_file_name{ config["yolo_model"]["model_weight_file_name"].value<std::string>().value() };
   std::filesystem::path model_weight_file_path = model_save_directory / model_weight_file_name;
-  torch::load(yolov3, model_weight_file_path);
+  
+  if (std::filesystem::exists(model_weight_file_path))
+  {
+    torch::load(yolov3, model_weight_file_path);
+  }
+  else
+  {
+    std::cout << "file does not exists " << model_weight_file_path << std::endl;
+    return -1;
+  }
 
   // Disable gradient calculation
   torch::NoGradGuard no_grad;
