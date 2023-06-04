@@ -40,7 +40,7 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_dra
   auto classess_flaten = classes.flatten(0, 1);
 
   auto objectness = predictions.slice(2, 24, torch::indexing::None, 1);
-  auto objectness_flaten = objectness.flatten(0, 1).squeeze();
+  auto objectness_flaten = objectness.flatten(0, 1);
   if (!target_draw)
   {
     classess_flaten = softmax(classess_flaten);
@@ -55,8 +55,8 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_dra
     auto objectness_prob = objectness_flaten[i].item<float>();
     if (objectness_prob > 0.5)
     {
-      std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
-                << " class_index " << class_indexe << std::endl;
+      // std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
+      //           << " class_index " << class_indexe << std::endl;
       selected_index.push_back(i);
     }
   }
@@ -75,7 +75,7 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
   {
     name = "prediction";
   }
-  std::cout << std::endl << "_______________________" << name << "_____________________________" << std::endl;
+  // std::cout << std::endl << "_______________________" << name << "_____________________________" << std::endl;
   std::vector<int> selected_index = get_selected_indexes(prediction, target_draw);
   auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1);
 
@@ -127,8 +127,8 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
     std::string class_number_probability = "id=" + std::to_string(class_indexe) + " c=" + std::to_string(calss_prob);
     cv::putText(frame, class_number_probability, { x1, y1 - 3 }, cv::FONT_HERSHEY_SIMPLEX, 0.6, color, thickness);
   }
-  std::cout << "_________________________" << name << "___________________________" << std::endl;
-  std::cout << std::endl;
+  // std::cout << "_________________________" << name << "___________________________" << std::endl;
+  // std::cout << std::endl;
 }
 
 cv::Mat get_cv_frame(torch::Tensor t_image)

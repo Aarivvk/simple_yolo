@@ -6,84 +6,135 @@
 #include <torch/serialize/input-archive.h>
 
 #include <ostream>
+
+using torch::indexing::Ellipsis;
+using torch::indexing::None;
+using torch::indexing::Slice;
+
 class YOLOLossImpl : public torch::nn::Module
 {
  public:
   torch::Tensor forward(torch::Tensor predictions, torch::Tensor targets)
   {
-    auto bojectness_labels = targets.slice(3, 24, 25, 1);
-    auto bojectness_predictions = predictions.slice(3, 24, 25, 1);
-    auto object_loss = m_bce(bojectness_predictions, bojectness_labels);
+    auto objects_index = targets.index({ Ellipsis, 24 }) == 1;
+    auto no_objects_index = targets.index({ Ellipsis, 24 }) == 0;
 
-    auto center_x_lable = targets.slice(3, 20, 21, 1);
-    auto center_x_prediction = predictions.slice(3, 20, 21, 1).sigmoid();
+    auto objects_label = targets.index({ objects_index });
+    auto objects_predictions = predictions.index({ objects_index });
+    // objects_label[15, 25] no_objects_index[475, 25]
+
+    auto no_objects_label = targets.index({ no_objects_index });
+    auto no_objects_predictions = predictions.index({ no_objects_index });
+
+    auto object_loss = yolo_loss(objects_label, objects_predictions);
+    auto no_object_loss = yolo_loss(no_objects_label, no_objects_predictions);
+
+    return object_loss * 10 + no_object_loss;
+  }
+
+  torch::Tensor yolo_loss(torch::Tensor& objects_label, torch::Tensor& objects_predictions)
+  {
+    // Objectness loss
+    auto obj_bojectness_labels = objects_label.slice(1, 24, 25, 1);
+    auto obj_bojectness_predictions = objects_predictions.slice(1, 24, 25, 1);
+    auto object_loss = m_bce(obj_bojectness_predictions, obj_bojectness_labels);
+
+    // center x loss
+    auto center_x_lable = objects_label.slice(1, 20, 21, 1);
+    auto center_x_prediction = objects_predictions.slice(1, 20, 21, 1).sigmoid();
     auto center_x_loss = m_mse_loss(center_x_prediction, center_x_lable);
 
-    auto center_y_lable = targets.slice(3, 21, 22, 1);
-    auto center_y_prediction = predictions.slice(3, 21, 22, 1).sigmoid();
+    // center y loss
+    auto center_y_lable = objects_label.slice(1, 21, 22, 1);
+    auto center_y_prediction = objects_predictions.slice(1, 21, 22, 1).sigmoid();
     auto center_y_loss = m_mse_loss(center_y_prediction, center_y_lable);
 
-    auto w_lable = targets.slice(3, 22, 23, 1);
-    auto w_prediction = predictions.slice(3, 22, 23, 1).sigmoid();
+    // width loss
+    auto w_lable = objects_label.slice(1, 22, 23, 1);
+    auto w_prediction = objects_predictions.slice(1, 22, 23, 1).sigmoid();
     auto w_loss = m_mse_loss(w_prediction, w_lable);
 
-    auto h_lable = targets.slice(3, 23, 24, 1);
-    auto h_prediction = predictions.slice(3, 23, 24, 1).sigmoid();
+    // height loss
+    auto h_lable = objects_label.slice(1, 23, 24, 1);
+    auto h_prediction = objects_predictions.slice(1, 23, 24, 1).sigmoid();
     auto h_loss = m_mse_loss(h_prediction, h_lable);
 
-    auto class_lable = targets.slice(3, 0, 20, 1).permute({ 0, 3, 1, 2 });
-    // torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
-    auto class_prediction = predictions.slice(3, 0, 20, 1).permute({ 0, 3, 1, 2 });
+    // Object class loss
+    auto class_lable = objects_label.slice(1, 0, 20, 1);
+    auto class_prediction = objects_predictions.slice(1, 0, 20, 1);
     auto class_loss = m_cross_entropy_loss(class_prediction, class_lable);
-
-    // auto boxes_lable = targets.slice(3, 20, 24, 1);
-    // auto boxes_predition = predictions.slice(3, 20, 24, 1).sigmoid();
-    // auto iou = IOU(boxes_predition, boxes_lable);
-
-    // std::cout << "object_loss " << object_loss << std::endl;
-    // std::cout << "center_loss " << center_loss << std::endl;
-    // std::cout << "wh_loss " << wh_loss << std::endl;
-    // std::cout << "class_loss " << center_loss << std::endl << std::endl;
 
     return object_loss + center_x_loss + center_y_loss + w_loss + h_loss + class_loss;
   }
 
   double accuracy(torch::Tensor predictions, torch::Tensor targets)
   {
-    uint64 true_positive = 0, false_positive = 0;
-    double Precision{};
-    auto classes = predictions.slice(2, torch::indexing::None, 20, 1);
+    torch::NoGradGuard no_grad;
+    double true_positive = 0, true_negative = 0, false_positive = 0, false_negative = 0;
+    double accuracy{};
+    auto classes = predictions.slice(3, torch::indexing::None, 20, 1);
+    auto classes_lable = targets.slice(3, torch::indexing::None, 20, 1);
     torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
     auto classess_flaten = classes.flatten(1, 2);
+    auto classess_flaten_label = classes_lable.flatten(1, 2);
 
-    auto objectness = predictions.slice(2, 24, torch::indexing::None, 1);
-    auto objectness_flaten = objectness.flatten(1, 2).squeeze();
+    auto objectness = predictions.slice(3, 24, torch::indexing::None, 1);
+    auto objectness_lable = targets.slice(3, 24, torch::indexing::None, 1);
+    auto objectness_flaten = objectness.flatten(1, 2);
+    auto objectness_lable_flaten = objectness_lable.flatten(1, 2);
     classess_flaten = softmax(classess_flaten);
-    objectness_flaten = objectness_flaten.sigmoid();
+    classess_flaten_label = softmax(classess_flaten_label);
+    objectness_flaten = objectness_flaten;
     size_t batch_size = predictions.size(0);
     size_t number_of_detections = objectness_flaten.size(1);
 
-
-    std::vector<int> selected_index{};
     for (size_t i = 0; i < batch_size; i++)
     {
-      for(size_t j=0; j<number_of_detections; j++ )
+      for (size_t j = 0; j < number_of_detections; j++)
       {
         auto class_indexe = classess_flaten[i][j].argmax().item<int>();
         auto calss_prob = classess_flaten[i][j][class_indexe].item<double>();
+
+        auto class_indexe_label = classess_flaten_label[i][j].argmax().item<int>();
+        auto calss_prob_lable = classess_flaten_label[i][j][class_indexe].item<double>();
+
         auto objectness_prob = objectness_flaten[i][j].item<double>();
-      if (objectness_prob > 0.5)
-      {
-        std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob "
-                  << calss_prob << " class_index " << class_indexe << std::endl;
-        selected_index.push_back(i);
-      }
+        auto objectness_lable_prob = objectness_lable_flaten[i][j].item<double>();
+        if ((objectness_prob > 0.5 && objectness_lable_prob == 1.00))
+        {
+          ++true_positive;
+        }
+        if ((objectness_prob < 0.5 && objectness_lable_prob == 0.00))
+        {
+          ++true_negative;
+        }
 
-      }
+        if (objectness_prob > 0.5 && objectness_lable_prob == 0.00)
 
+        {
+          ++false_positive;
+        }
+        if (objectness_prob < 0.5 && objectness_lable_prob == 1.00)
+        {
+          ++false_negative;
+        }
+      }
     }
 
-    return Precision;
+    auto numarator = true_positive + true_negative;
+    auto devider = (numarator + false_positive + false_negative);
+    if (devider > 0.0)
+    {
+      accuracy = numarator / devider;
+    }
+
+    std::cout << "\e[A\r"
+              << "\033[2K"
+              << "TP = " << true_positive << " TN = " << true_negative << " FP = " << false_positive
+              << " FN = " << false_negative << std::endl
+              << std::flush;
+
+    return accuracy;
   }
 
  private:
