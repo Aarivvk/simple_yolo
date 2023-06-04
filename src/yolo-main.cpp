@@ -13,9 +13,9 @@
 #include <csignal>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <ostream>
-#include <fstream>
 #include <string_view>
 #include <vector>
 
@@ -25,6 +25,9 @@
 #include "yolo-dataset.hpp"
 #include "yolo-loss.hpp"
 #include "yolo-model.hpp"
+
+
+// https://github.com/prabhuomkar/pytorch-cpp/blob/master/tutorials/basics/pytorch_basics/main.cpp
 
 bool app_run = true;
 void signalHandler(int signum)
@@ -72,6 +75,7 @@ int main()
   if (std::filesystem::exists(model_save_file_path))
   {
     torch::load(yolov3, model_save_file_path);
+    std::cout << "Loaded previous weights from " << model_save_file_path << std::endl;
   }
   yolov3->to(device);
 
@@ -81,8 +85,10 @@ int main()
   double learning_rate = training_config["learning_rate"].value<double>().value();
   double momentum = training_config["momentum"].value<double>().value();
   double weight_decay = training_config["weight_decay"].value<double>().value();
-  // torch::optim::Adam optimizer(yolov3->parameters(), torch::optim::AdamOptions().lr(learning_rate).weight_decay(weight_decay));
-  torch::optim::AdamW optimizer(yolov3->parameters(), torch::optim::AdamWOptions().lr(learning_rate).weight_decay(weight_decay));
+  // torch::optim::Adam optimizer(yolov3->parameters(),
+  // torch::optim::AdamOptions().lr(learning_rate).weight_decay(weight_decay));
+  torch::optim::AdamW optimizer(
+      yolov3->parameters(), torch::optim::AdamWOptions().lr(learning_rate).weight_decay(weight_decay));
 
   // Preaper the data set
   uint64_t batch_size = training_config["batch_size"].value<uint64_t>().value();
@@ -117,6 +123,7 @@ int main()
   {
     // Iterate the data loader to yield batches from the dataset.
     torch::Tensor epoch_loss = torch::zeros({ 1 }).to(device);
+    torch::Tensor epoch_precision = torch::zeros({ 1 }).to(device);
     size_t train_batch_count = 1;
     yolov3->train();
     for (auto &batch : *train_data_loader)
@@ -138,15 +145,22 @@ int main()
       loss.backward();
       // Update the weights with gradients
       optimizer.step();
+      auto precision = yolo_loss->accuracy(model_prediction_tensor, batch_targets_tensor);
 
       // auto loss_cpu = loss.clone().to(torch::kCPU);
       // train_avarage_loss = train_avarage_loss + loss;
       auto loss_data = loss.sum().item<double>();
-      std::cout << '\r' << "Epoch " << i << " loss train = " << loss_data
-                << " train_batch_count = " << train_batch_count * batch_size << "/" << train_data_size << std::flush;
+      std::cout << '\r' << "\033[2K"
+                << "[Train]"
+                << "[" << i + 1 << "/" << epochs << "] [" << train_batch_count * batch_size << "/" << train_data_size << "] "
+                << "Loss = " << loss_data << " | "
+                << "Precision = " << precision << std::flush;
       torch::Tensor local_loss = torch::zeros({ 1 }).to(device);
       local_loss = local_loss + loss_data;
       epoch_loss = torch::cat({ epoch_loss, local_loss }, 0);
+      torch::Tensor local_precision = torch::zeros({ 1 }).to(device);
+      local_precision = local_precision + precision;
+      epoch_precision = torch::cat({ epoch_precision, local_precision }, 0);
 
       if (display)
       {
@@ -160,13 +174,30 @@ int main()
       }
       ++train_batch_count;
     }
-    data_ploter.add_data_train(epoch_loss.mean().data().item<double>(), i);
+    torch::save(yolov3, model_save_file_path);
+    data_ploter.save_graph(model_loss_graph_file_path);
+    std::ofstream ofs(model_save_directory / config_file);
+    ofs << config << std::flush;
+    data_ploter.add_data_train(epoch_loss.mean().data().item<double>(), i, epoch_precision.mean().data().item<double>());
 
     std::cout << std::endl;
+
     {
       torch::NoGradGuard no_grad;
-      yolov3->eval();
+      // Create the module from fonfiguration
+      YOLOv3 yolov3_test{ model_config };
+      if (std::filesystem::exists(model_save_file_path))
+      {
+        torch::load(yolov3_test, model_save_file_path);
+      }
+      yolov3_test->to(device);
+      yolov3_test->eval();
+      // Create test loss
+      YOLOLoss yolo_loss_test{};
+      yolo_loss_test->to(device);
+      yolo_loss_test->eval();
       torch::Tensor epoch_loss_validation = torch::zeros({ 1 }).to(device);
+      torch::Tensor epoch_precision_validation = torch::zeros({ 1 }).to(device);
       size_t validation_batch_count = 1;
       for (auto &batch : *test_data_loader)
       {
@@ -179,19 +210,28 @@ int main()
         torch::Tensor batch_targets_tensor = torch::stack(batch_targets_vector).to(device);
 
         // Do the prediction
-        auto model_prediction_tensor = yolov3(batch_inputs_tensor);
+        auto model_prediction_tensor = yolov3_test(batch_inputs_tensor);
         // Compute the loss
-        auto loss = yolo_loss(model_prediction_tensor, batch_targets_tensor);
+        auto loss = yolo_loss_test(model_prediction_tensor, batch_targets_tensor);
+        auto precision = yolo_loss_test->accuracy(model_prediction_tensor, batch_targets_tensor);
 
         // auto loss_cpu = loss.clone().to(torch::kCPU);
         // train_avarage_loss = train_avarage_loss + loss;
         auto loss_data = loss.item<float>();
-        std::cout << '\r' << "Epoch " << i << " loss test = " << loss_data
-                  << " validation_batch_count = " << validation_batch_count * batch_size << "/" << test_data_size
-                  << std::flush;
+
+        std::cout << '\r' << "\033[2K"
+                  << "[Test]"
+                  << "[" << i + 1 << "/" << epochs << "] [" << validation_batch_count * batch_size << "/" << test_data_size
+                  << "] "
+                  << "Loss = " << loss_data << " | "
+                  << "Precision = " << precision << std::flush;
+
         torch::Tensor local_loss = torch::zeros({ 1 }).to(device);
         local_loss = local_loss + loss_data;
         epoch_loss_validation = torch::cat({ epoch_loss_validation, local_loss }, 0);
+        torch::Tensor local_precision = torch::zeros({ 1 }).to(device);
+        local_precision = local_precision + precision;
+        epoch_precision_validation = torch::cat({ epoch_precision_validation, local_precision }, 0);
 
         if (display)
         {
@@ -204,7 +244,8 @@ int main()
         }
         ++validation_batch_count;
       }
-      data_ploter.add_data_validation(epoch_loss_validation.mean().data().item<float>(), i);
+      data_ploter.add_data_validation(
+          epoch_loss_validation.mean().data().item<double>(), i, epoch_precision_validation.mean().data().item<double>());
     }
     std::cout << std::endl;
     if (display)
@@ -217,8 +258,8 @@ int main()
   torch::save(yolov3, model_save_file_path);
   std::cout << "Saved the model! " << model_save_directory << std::endl;
   data_ploter.save_graph(model_loss_graph_file_path);
-  std::ofstream ofs(model_save_directory/config_file);
-  ofs << config << std::flush; 
+  std::ofstream ofs(model_save_directory / config_file);
+  ofs << config << std::flush;
   ofs.close();
 
   return 0;
