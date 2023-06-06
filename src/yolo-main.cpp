@@ -26,7 +26,6 @@
 #include "yolo-loss.hpp"
 #include "yolo-model.hpp"
 
-
 // https://github.com/prabhuomkar/pytorch-cpp/blob/master/tutorials/basics/pytorch_basics/main.cpp
 
 bool app_run = true;
@@ -119,6 +118,7 @@ int main()
   std::cout << std::fixed;
   yolov3->train();
   // yolo_loss->train();
+  double previous_loss{ 100 };
   for (size_t i = 0; i < epochs && run; i++)
   {
     // Iterate the data loader to yield batches from the dataset.
@@ -165,7 +165,8 @@ int main()
       if (display)
       {
         torch::NoGradGuard no_grad;
-        run = display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0]);
+        run =
+            display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0], config["inference"]);
       }
       run = run && app_run;
       if (!run)
@@ -174,10 +175,6 @@ int main()
       }
       ++train_batch_count;
     }
-    torch::save(yolov3, model_save_file_path);
-    data_ploter.save_graph(model_loss_graph_file_path);
-    std::ofstream ofs(model_save_directory / config_file);
-    ofs << config << std::flush;
     data_ploter.add_data_train(epoch_loss.mean().data().item<double>(), i, epoch_precision.mean().data().item<double>());
 
     std::cout << std::endl;
@@ -235,7 +232,8 @@ int main()
 
         if (display)
         {
-          run = display_imgae(batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0]);
+          run = display_imgae(
+              batch_inputs_tensor[0], model_prediction_tensor[0], batch_targets_tensor[0], config["inference"]);
         }
         run = run && app_run;
         if (!run)
@@ -244,10 +242,20 @@ int main()
         }
         ++validation_batch_count;
       }
-      data_ploter.add_data_validation(
-          epoch_loss_validation.mean().data().item<double>(), i, epoch_precision_validation.mean().data().item<double>());
+      auto current_loss = epoch_loss_validation.mean().data().item<double>();
+      data_ploter.add_data_validation(current_loss, i, epoch_precision_validation.mean().data().item<double>());
+      if (current_loss <= previous_loss)
+      {
+        torch::save(yolov3, model_save_file_path);
+        data_ploter.save_graph(model_loss_graph_file_path);
+        std::ofstream ofs(model_save_directory / config_file);
+        ofs << config << std::flush;
+      }
+      previous_loss = current_loss;
     }
+
     std::cout << std::endl;
+
     if (display)
     {
       run = run && !data_ploter.show_plot();

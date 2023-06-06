@@ -10,6 +10,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <string>
+#include "toml++/toml.h"
 
 #include "opencv2/core.hpp"
 
@@ -33,7 +34,7 @@ cv::VideoCapture get_camera(int width, int height)
   return cap;
 }
 
-std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_draw)
+std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_draw, toml::node_view<toml::node> config)
 {
   auto classes = predictions.slice(2, torch::indexing::None, 20, 1);
   torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
@@ -53,7 +54,9 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_dra
     auto class_indexe = classess_flaten[i].argmax().item<int>();
     auto calss_prob = classess_flaten[i][class_indexe].item<float>();
     auto objectness_prob = objectness_flaten[i].item<float>();
-    if (objectness_prob > 0.5)
+    auto obj_threshold = config["bojectness_threshold"].value<double>().value();
+    auto class_threshold = config["class_threshold"].value<double>().value();
+    if (objectness_prob >= obj_threshold && calss_prob > class_threshold)
     {
       // std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
       //           << " class_index " << class_indexe << std::endl;
@@ -64,7 +67,7 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_dra
   return selected_index;
 }
 
-void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_draw)
+void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_draw, toml::node_view<toml::node> config)
 {
   std::string name;
   if (target_draw)
@@ -76,7 +79,7 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
     name = "prediction";
   }
   // std::cout << std::endl << "_______________________" << name << "_____________________________" << std::endl;
-  std::vector<int> selected_index = get_selected_indexes(prediction, target_draw);
+  std::vector<int> selected_index = get_selected_indexes(prediction, target_draw, config);
   auto bounding_box = prediction.slice(2, 20, 25, 1).flatten(0, 1);
 
   auto classes = prediction.slice(2, torch::indexing::None, 20, 1);
@@ -156,18 +159,18 @@ bool display_imgae(cv::Mat& frame)
   return true;
 }
 
-bool display_imgae(torch::Tensor t_image)
+bool display_imgae(torch::Tensor t_image, toml::node_view<toml::node> config)
 {
   cv::Mat image = get_cv_frame(t_image);
-  draw_bounding_box(t_image, image, false);
+  draw_bounding_box(t_image, image, false, config);
   return display_imgae(image);
 }
 
-bool display_imgae(torch::Tensor t_image, torch::Tensor t_predict, torch::Tensor t_target)
+bool display_imgae(torch::Tensor t_image, torch::Tensor t_predict, torch::Tensor t_target, toml::node_view<toml::node> config)
 {
   cv::Mat image = get_cv_frame(t_image);
-  draw_bounding_box(t_target, image, true);
-  draw_bounding_box(t_predict, image, false);
+  draw_bounding_box(t_target, image, true, config);
+  draw_bounding_box(t_predict, image, false, config);
   return display_imgae(image);
 }
 
