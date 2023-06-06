@@ -1,5 +1,5 @@
 [training_loop]
-epochs = 10
+epochs = 100
 batch_size = 15
 number_of_workers = 10
 learning_rate = 5.0e-06
