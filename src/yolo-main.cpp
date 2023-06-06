@@ -37,6 +37,7 @@ void signalHandler(int signum)
 
 int main()
 {
+  torch::manual_seed(3);
   // register signal SIGINT and signal handler
   signal(SIGINT, signalHandler);
 
