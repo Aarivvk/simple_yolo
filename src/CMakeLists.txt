@@ -72,4 +72,9 @@ add_executable(${Target6} object-detector.cpp)
 target_link_libraries(${Target6} PRIVATE ${OpenCV_LIBS} ${TORCH_LIBRARIES} yolo-dataset yolo-model ${tomlplusplus_INCLUDE_DIR})
 target_include_directories(${Target6} PRIVATE ${CMAKE_SOURCE_DIR}/include ${OpenCV_Includes} ${tomlplusplus_SOURCE_DIR}/include)
 
-install(TARGETS ${Target} ${Target3} ${Target4} ${Target6} CONFIGURATIONS Release RUNTIME DESTINATION playground/bin)
+set(Target7 plot-test)
+add_executable(${Target7} plot-test.cpp)
+target_link_libraries(${Target7} PRIVATE ${tomlplusplus_INCLUDE_DIR} Matplot++::matplot)
+target_include_directories(${Target7} PRIVATE ${CMAKE_SOURCE_DIR}/include ${OpenCV_Includes} ${tomlplusplus_SOURCE_DIR}/include)
+
+install(TARGETS ${Target} ${Target3} ${Target4} ${Target6} ${Target7} CONFIGURATIONS Release RUNTIME DESTINATION playground/bin)

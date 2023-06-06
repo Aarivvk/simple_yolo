@@ -18,18 +18,28 @@ class YOLOLossImpl : public torch::nn::Module
   {
     auto objects_index = targets.index({ Ellipsis, 24 }) == 1;
     auto no_objects_index = targets.index({ Ellipsis, 24 }) == 0;
+    // std::cout << "objects_index " << objects_index.sizes() << std::endl;
+    // std::cout << "no_objects_index " << no_objects_index.sizes() << std::endl;
+    // objects_index [15, 7, 7]
+    // no_objects_index [15, 7, 7]
 
     auto objects_label = targets.index({ objects_index });
     auto objects_predictions = predictions.index({ objects_index });
-    // objects_label[15, 25] no_objects_index[475, 25]
+    // std::cout << "objects_label " << objects_label.sizes() << std::endl;
+    // std::cout << "objects_predictions " << objects_predictions.sizes() << std::endl;
+    // objects_label[33, 25]
+    // objects_predictions[33, 25]
+
+    auto object_loss = yolo_loss(objects_label, objects_predictions);
 
     auto no_objects_label = targets.index({ no_objects_index });
     auto no_objects_predictions = predictions.index({ no_objects_index });
-
-    auto object_loss = yolo_loss(objects_label, objects_predictions);
     auto no_object_loss = yolo_loss(no_objects_label, no_objects_predictions);
 
-    return object_loss * 10 + no_object_loss;
+    // std::cout << "object_loss " << object_loss.item<double>() << std::endl;
+    // std::cout << "no_object_loss " << no_object_loss.item<double>() << std::endl;
+
+    return object_loss + no_object_loss;
   }
 
   torch::Tensor yolo_loss(torch::Tensor& objects_label, torch::Tensor& objects_predictions)
@@ -72,14 +82,14 @@ class YOLOLossImpl : public torch::nn::Module
     torch::NoGradGuard no_grad;
     double true_positive = 0, true_negative = 0, false_positive = 0, false_negative = 0;
     double accuracy{};
-    auto classes = predictions.slice(3, torch::indexing::None, 20, 1);
-    auto classes_lable = targets.slice(3, torch::indexing::None, 20, 1);
-    torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
+    auto classes = predictions.slice(3, None, 20, 1);
+    auto classes_lable = targets.slice(3, None, 20, 1);
+    torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(2));
     auto classess_flaten = classes.flatten(1, 2);
     auto classess_flaten_label = classes_lable.flatten(1, 2);
 
-    auto objectness = predictions.slice(3, 24, torch::indexing::None, 1);
-    auto objectness_lable = targets.slice(3, 24, torch::indexing::None, 1);
+    auto objectness = predictions.slice(3, 24, None, 1);
+    auto objectness_lable = targets.slice(3, 24, None, 1);
     auto objectness_flaten = objectness.flatten(1, 2);
     auto objectness_lable_flaten = objectness_lable.flatten(1, 2);
     classess_flaten = softmax(classess_flaten);

@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <opencv2/core/mat.hpp>
 
+#include "toml++/toml.h"
 #include "torch/torch.h"
 #include "utils/open-cv-helper.hpp"
 #include "yolo-model.hpp"
@@ -93,7 +94,7 @@ int main(void)
     auto output = yolov3(img_tensor);
     output = output.squeeze();
     // extract the class index
-    draw_bounding_box(output, frame, false);
+    draw_bounding_box(output, frame, false, config["inference"]);
 
     run = display_imgae(frame);
   }

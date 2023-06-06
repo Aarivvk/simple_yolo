@@ -3,3 +3,4 @@ build/*
 lib/libtorch
 .cache/
 data/PASCAL_VOC
+saved_models/**/
