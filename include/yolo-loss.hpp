@@ -34,7 +34,9 @@ class YOLOLossImpl : public torch::nn::Module
 
     auto no_objects_label = targets.index({ no_objects_index });
     auto no_objects_predictions = predictions.index({ no_objects_index });
-    auto no_object_loss = yolo_loss(no_objects_label, no_objects_predictions);
+    auto obj_bojectness_labels = no_objects_label.slice(1, 24, 25, 1);
+    auto obj_bojectness_predictions = no_objects_predictions.slice(1, 24, 25, 1);
+    auto no_object_loss = m_bce(obj_bojectness_predictions, obj_bojectness_labels);
 
     // std::cout << "object_loss " << object_loss.item<double>() << std::endl;
     // std::cout << "no_object_loss " << no_object_loss.item<double>() << std::endl;
@@ -46,35 +48,20 @@ class YOLOLossImpl : public torch::nn::Module
   {
     // Objectness loss
     auto obj_bojectness_labels = objects_label.slice(1, 24, 25, 1);
-    auto obj_bojectness_predictions = objects_predictions.slice(1, 24, 25, 1);
-    auto object_loss = m_bce(obj_bojectness_predictions, obj_bojectness_labels);
+    auto obj_bojectness_predictions = objects_predictions.slice(1, 24, 25, 1).sigmoid();
+    auto object_loss = m_mse_loss(obj_bojectness_predictions, obj_bojectness_labels);
 
-    // center x loss
-    auto center_x_lable = objects_label.slice(1, 20, 21, 1);
-    auto center_x_prediction = objects_predictions.slice(1, 20, 21, 1).sigmoid();
-    auto center_x_loss = m_mse_loss(center_x_prediction, center_x_lable);
-
-    // center y loss
-    auto center_y_lable = objects_label.slice(1, 21, 22, 1);
-    auto center_y_prediction = objects_predictions.slice(1, 21, 22, 1).sigmoid();
-    auto center_y_loss = m_mse_loss(center_y_prediction, center_y_lable);
-
-    // width loss
-    auto w_lable = objects_label.slice(1, 22, 23, 1);
-    auto w_prediction = objects_predictions.slice(1, 22, 23, 1).sigmoid();
-    auto w_loss = m_mse_loss(w_prediction, w_lable);
-
-    // height loss
-    auto h_lable = objects_label.slice(1, 23, 24, 1);
-    auto h_prediction = objects_predictions.slice(1, 23, 24, 1).sigmoid();
-    auto h_loss = m_mse_loss(h_prediction, h_lable);
+    // box loss
+    auto box_lable = objects_label.slice(1, 20, 24, 1);
+    auto box_prediction = objects_predictions.slice(1, 20, 24, 1).sigmoid();
+    auto box_loss = m_mse_loss(box_prediction, box_lable);
 
     // Object class loss
     auto class_lable = objects_label.slice(1, 0, 20, 1);
     auto class_prediction = objects_predictions.slice(1, 0, 20, 1);
     auto class_loss = m_cross_entropy_loss(class_prediction, class_lable);
 
-    return object_loss + center_x_loss + center_y_loss + w_loss + h_loss + class_loss;
+    return object_loss + box_loss + class_loss;
   }
 
   double accuracy(torch::Tensor predictions, torch::Tensor targets)
@@ -131,8 +118,8 @@ class YOLOLossImpl : public torch::nn::Module
       }
     }
 
-    auto numarator = true_positive + true_negative;
-    auto devider = (numarator + false_positive + false_negative);
+    auto numarator = true_positive;
+    auto devider = (numarator + false_positive);
     if (devider > 0.0)
     {
       accuracy = numarator / devider;

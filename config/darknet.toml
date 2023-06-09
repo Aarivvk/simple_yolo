@@ -2,7 +2,7 @@
 epochs = 100
 batch_size = 15
 number_of_workers = 10
-learning_rate = 5.0e-06
+learning_rate = 1.0e-04
 momentum = 1.0e-1
 weight_decay = 1.0e-4
 display = true
@@ -23,9 +23,11 @@ input_channel = 3
 num_classes = 20
 num_anchors = 3
 layers_structure = [ [ 32, 3, 1, 0 ], [ 64, 3, 2, 2 ], [ 128, 3, 2, 4 ], [ 256, 3, 2, 8 ], [ 512, 3, 2, 8 ], [ 1024, 3, 2, 4 ] ]
-model_path = "saved_models/14"
+model_path = "saved_models/21"
 model_weight_file_name = "yolv3.pt"
+model_weight_file_name_current = "yolov3_current.pt"
 model_loss_graph_file = "loss.png"
+model_loss_graph_file_current = "loss_current.png"
 
 [camera]
 image_width = 640
