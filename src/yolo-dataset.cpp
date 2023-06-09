@@ -105,7 +105,10 @@ torch::data::Example<> YOLODataset::get(size_t index)
     tens_target[cell_i][cell_j][m_num_class + 4] = 1;
   }
 
-  return { img_tensor / 255, tens_target };
+  img_tensor = (img_tensor / 255);
+  img_tensor = (img_tensor - img_tensor.mean())/ img_tensor.std();
+
+  return { img_tensor, tens_target };
 }
 
 torch::optional<size_t> YOLODataset::size() const

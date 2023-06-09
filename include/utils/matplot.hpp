@@ -70,7 +70,7 @@ class DataPloter
     m_ax1->hold(matplot::on);
 
     auto p_test_loss = m_ax1->plot(m_test_x_vec, m_test_loss_vec);
-    p_test_loss->use_y2(true);
+    // p_test_loss->use_y2(true);
     p_test_loss->line_width(2).color("b");
     m_ax1->hold(matplot::off);
 
@@ -79,7 +79,7 @@ class DataPloter
     m_ax2->hold(matplot::on);
 
     auto p_test_precision = m_ax2->plot(m_test_x_vec, m_test_precision_vec);
-    p_test_precision->use_y2(true);
+    // p_test_precision->use_y2(true);
     p_test_precision->line_width(2).color("b");
     m_ax2->hold(matplot::off);
   }

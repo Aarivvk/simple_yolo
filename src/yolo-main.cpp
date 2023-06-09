@@ -66,9 +66,17 @@ int main()
   std::filesystem::path model_save_directory{ model_config["model_path"].value<std::string>().value() };
   std::filesystem::create_directory(model_save_directory);
   std::filesystem::path model_weight_file_name{ model_config["model_weight_file_name"].value<std::string>().value() };
+  std::filesystem::path model_weight_file_name_current{
+    model_config["model_weight_file_name_current"].value<std::string>().value()
+  };
   std::filesystem::path model_save_file_path = model_save_directory / model_weight_file_name;
+  std::filesystem::path model_save_file_path_current = model_save_directory / model_weight_file_name_current;
   std::filesystem::path model_loss_graph_file_name{ model_config["model_loss_graph_file"].value<std::string>().value() };
+  std::filesystem::path model_loss_graph_file_name_current{
+    model_config["model_loss_graph_file_current"].value<std::string>().value()
+  };
   std::filesystem::path model_loss_graph_file_path = model_save_directory / model_loss_graph_file_name;
+  std::filesystem::path model_loss_graph_file_path_current = model_save_directory / model_loss_graph_file_name;
 
   // Create the module from fonfiguration
   YOLOv3 yolov3{ model_config };
@@ -118,7 +126,7 @@ int main()
 
   std::cout << std::fixed;
   yolov3->train();
-  // yolo_loss->train();
+  yolo_loss->train();
   double previous_loss{ 100 };
   for (size_t i = 0; i < epochs && run; i++)
   {
@@ -178,15 +186,26 @@ int main()
     }
     data_ploter.add_data_train(epoch_loss.mean().data().item<double>(), i, epoch_precision.mean().data().item<double>());
 
+    torch::save(yolov3, model_save_file_path_current);
+    data_ploter.save_graph(model_loss_graph_file_path_current);
+    std::ofstream ofs(model_save_directory / config_file);
+    ofs << config << std::flush;
+    ofs.close();
+
     std::cout << std::endl;
 
     {
       torch::NoGradGuard no_grad;
       // Create the module from fonfiguration
       YOLOv3 yolov3_test{ model_config };
-      if (std::filesystem::exists(model_save_file_path))
+      if (std::filesystem::exists(model_save_file_path_current))
       {
-        torch::load(yolov3_test, model_save_file_path);
+        torch::load(yolov3_test, model_save_file_path_current);
+      }
+      else
+      {
+        std::cout << "Error: no file to load " << model_save_file_path_current << std::endl;
+        exit(1);
       }
       yolov3_test->to(device);
       yolov3_test->eval();
@@ -247,15 +266,19 @@ int main()
       data_ploter.add_data_validation(current_loss, i, epoch_precision_validation.mean().data().item<double>());
       if (current_loss <= previous_loss)
       {
+        std::cout << std::endl
+                  << std::endl
+                  << "Saving the best weight for loss " << current_loss << " epoch " << i + 1 << std::endl;
         torch::save(yolov3, model_save_file_path);
         data_ploter.save_graph(model_loss_graph_file_path);
         std::ofstream ofs(model_save_directory / config_file);
         ofs << config << std::flush;
+        ofs.close();
+        previous_loss = current_loss;
       }
-      previous_loss = current_loss;
     }
 
-    std::cout << std::endl;
+    std::cout << std::endl << std::endl;
 
     if (display)
     {
@@ -264,12 +287,6 @@ int main()
   }
 
   std::cout << "Done iterating" << std::endl;
-  torch::save(yolov3, model_save_file_path);
-  std::cout << "Saved the model! " << model_save_directory << std::endl;
-  data_ploter.save_graph(model_loss_graph_file_path);
-  std::ofstream ofs(model_save_directory / config_file);
-  ofs << config << std::flush;
-  ofs.close();
 
   return 0;
 }
