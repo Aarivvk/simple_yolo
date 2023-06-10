@@ -192,7 +192,7 @@ class YOLOLossImpl : public torch::nn::Module
 
     auto areas2 = w2 * h2;
 
-    auto left_top = torch::max(torch::cat({ x11, y11 }, 1), torch::cat({ x21, y11 }, 1));
+    auto left_top = torch::min(torch::cat({ x11, y11 }, 1), torch::cat({ x21, y11 }, 1));
     auto right_bottom = torch::max(torch::cat({ x12, y12 }, 1), torch::cat({ x22, y22 }, 1));
     auto width_height_intersection = (right_bottom - left_top).clamp(0);
     auto intersection = width_height_intersection.slice(1, 0, 1, 1) * width_height_intersection.slice(1, 1, 2, 1);
