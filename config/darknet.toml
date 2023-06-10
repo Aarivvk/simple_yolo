@@ -4,7 +4,7 @@ batch_size = 15
 number_of_workers = 10
 learning_rate = 1.0e-04
 momentum = 1.0e-1
-weight_decay = 1.0e-4
+weight_decay = 1.0e-04
 display = true
 
 [data_set]
@@ -16,14 +16,14 @@ image_directory_name = "images"
 lable_directory_name = "labels"
 image_width = 216
 image_height = 216
-number_of_detections = 7
+number_of_detections = 5
 
 [yolo_model]
 input_channel = 3
 num_classes = 20
 num_anchors = 3
-layers_structure = [ [ 32, 3, 1, 0 ], [ 64, 3, 2, 2 ], [ 128, 3, 2, 6 ], [ 256, 3, 2, 10 ], [ 512, 3, 2, 10 ], [ 1024, 3, 2, 4 ] ]
-model_path = "saved_models/23"
+layers_structure = [ [ 32, 3, 1, 0 ], [ 64, 3, 2, 2 ], [ 128, 3, 2, 4 ], [ 256, 3, 2, 6 ], [ 512, 3, 2, 6 ], [ 1024, 3, 2, 4 ] ]
+model_path = "saved_models/27"
 model_weight_file_name = "yolv3.pt"
 model_weight_file_name_current = "yolov3_current.pt"
 model_loss_graph_file = "loss.png"

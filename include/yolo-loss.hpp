@@ -23,6 +23,15 @@ class YOLOLossImpl : public torch::nn::Module
     // objects_index [15, 7, 7]
     // no_objects_index [15, 7, 7]
 
+    // # ======================= #
+    // #   FOR NO OBJECT LOSS    #
+    // # ======================= #
+    auto no_objects_label = targets.index({ no_objects_index });
+    auto no_objects_predictions = predictions.index({ no_objects_index });
+    auto obj_bojectness_labels = no_objects_label.slice(1, 24, 25, 1);
+    auto obj_bojectness_predictions = no_objects_predictions.slice(1, 24, 25, 1);
+    auto no_object_loss = m_bce(obj_bojectness_predictions, obj_bojectness_labels);
+
     auto objects_label = targets.index({ objects_index });
     auto objects_predictions = predictions.index({ objects_index });
     // std::cout << "objects_label " << objects_label.sizes() << std::endl;
@@ -32,12 +41,6 @@ class YOLOLossImpl : public torch::nn::Module
 
     auto object_loss = yolo_loss(objects_label, objects_predictions);
 
-    auto no_objects_label = targets.index({ no_objects_index });
-    auto no_objects_predictions = predictions.index({ no_objects_index });
-    auto obj_bojectness_labels = no_objects_label.slice(1, 24, 25, 1);
-    auto obj_bojectness_predictions = no_objects_predictions.slice(1, 24, 25, 1);
-    auto no_object_loss = m_bce(obj_bojectness_predictions, obj_bojectness_labels);
-
     // std::cout << "object_loss " << object_loss.item<double>() << std::endl;
     // std::cout << "no_object_loss " << no_object_loss.item<double>() << std::endl;
 
@@ -46,16 +49,26 @@ class YOLOLossImpl : public torch::nn::Module
 
   torch::Tensor yolo_loss(torch::Tensor& objects_label, torch::Tensor& objects_predictions)
   {
-    // Objectness loss
-    auto obj_bojectness_labels = objects_label.slice(1, 24, 25, 1);
-    auto obj_bojectness_predictions = objects_predictions.slice(1, 24, 25, 1).sigmoid();
-    auto object_loss = m_mse_loss(obj_bojectness_predictions, obj_bojectness_labels);
-
+    // # ======================== #
+    // #   FOR BOX COORDINATES    #
+    // # ======================== #
     // box loss
     auto box_lable = objects_label.slice(1, 20, 24, 1);
     auto box_prediction = objects_predictions.slice(1, 20, 24, 1).sigmoid();
     auto box_loss = m_mse_loss(box_prediction, box_lable);
 
+    // # ==================== #
+    // #   FOR OBJECT LOSS    #
+    // # ==================== #
+    // Calculate IOU for all detections
+    auto ious = IOU(objects_predictions, objects_label);
+    auto obj_bojectness_labels = objects_label.slice(1, 24, 25, 1);
+    auto obj_bojectness_predictions = objects_predictions.slice(1, 24, 25, 1).sigmoid();
+    auto object_loss = m_mse_loss(obj_bojectness_predictions, ious*obj_bojectness_labels);
+
+    // # ================== #
+    // #   FOR CLASS LOSS   #
+    // # ================== #
     // Object class loss
     auto class_lable = objects_label.slice(1, 0, 20, 1);
     auto class_prediction = objects_predictions.slice(1, 0, 20, 1);
