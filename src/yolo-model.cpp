@@ -47,13 +47,13 @@ class CNNImpl : public torch::nn::Module
 
   torch::Tensor forward(torch::Tensor x)
   {
-    torch::Tensor out = m_cnn_2d->forward(x);
+    x = m_cnn_2d->forward(x);
     if (add_bn)
     {
-      out = m_batch_norm_2d(out);
-      out = activation(out);
+      x = m_batch_norm_2d(x);
+      x = activation(x);
     }
-    return out;
+    return x;
   }
 
  private:
@@ -100,23 +100,26 @@ class YOLOPredictionImpl : public torch::nn::Module
  public:
   YOLOPredictionImpl(int64_t input_channel, int64_t num_classes)
       : m_num_classes{ num_classes },
-        m_cnn_1{ input_channel, (num_classes + 5 /*x,y,w,h,obj*/), 1, 0, 1, false }
+        m_cnn_1{ input_channel, 2 * input_channel, 3, 0, 1 },
+        m_cnn_2{ 2 * input_channel, (num_classes + 5 /*x,y,w,h,obj*/), 1, 0, 1, false }
   {
     register_module("Yolo_prediction_cnn1", m_cnn_1);
+    register_module("Yolo_prediction_cnn2", m_cnn_2);
   }
 
   torch::Tensor forward(torch::Tensor x)
   {
-    torch::Tensor out = m_cnn_1(x);
+    x = m_cnn_1(x);
+    x = m_cnn_2(x);
     /*  The prediction part do not have fully connected layers.
         Prediction will be in 3D convalution network.
     */
-    out = out.reshape({ x.size(0), (m_num_classes + 5), x.size(2), x.size(3) }).permute({ 0, 2, 3, 1});
-    return out;
+    x = x.reshape({ x.size(0), (m_num_classes + 5), x.size(2), x.size(3) }).permute({ 0, 2, 3, 1});
+    return x;
   }
 
  private:
-  CNN m_cnn_1;
+  CNN m_cnn_1, m_cnn_2;
   int64_t m_num_classes;
 };
 
