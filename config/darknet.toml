@@ -3,7 +3,7 @@ epochs = 100
 batch_size = 15
 number_of_workers = 10
 learning_rate = 1.0e-04
-momentum = 1.0e-1
+momentum = 1.0e-01
 weight_decay = 1.0e-04
 display = true
 
