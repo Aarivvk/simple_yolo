@@ -117,6 +117,7 @@ int main()
   YOLOLoss yolo_loss{};
 
   std::cout << "Start training" << std::endl;
+  std::cout << std::endl << std::endl << std::endl << std::endl;
 
   // torch::Tensor train_avarage_loss = torch::zeros({ 1 }).to(device);
   // torch::Tensor test_avarage_loss = torch::zeros({ 1 }).to(torch::kCPU);
