@@ -64,7 +64,7 @@ class YOLOLossImpl : public torch::nn::Module
     auto ious = IOU(objects_predictions, objects_label);
     auto obj_bojectness_labels = objects_label.slice(1, 24, 25, 1);
     auto obj_bojectness_predictions = objects_predictions.slice(1, 24, 25, 1).sigmoid();
-    auto object_loss = m_mse_loss(obj_bojectness_predictions, ious*obj_bojectness_labels);
+    auto object_loss = m_mse_loss(obj_bojectness_predictions, (ious * obj_bojectness_labels));
 
     // # ================== #
     // #   FOR CLASS LOSS   #
@@ -190,7 +190,7 @@ class YOLOLossImpl : public torch::nn::Module
     auto left_top = torch::max(torch::cat({ x11, y11 }, 1), torch::cat({ x21, y11 }, 1));
     auto right_bottom = torch::max(torch::cat({ x12, y12 }, 1), torch::cat({ x22, y22 }, 1));
     auto width_height_intersection = (right_bottom - left_top).clamp(0);
-    auto intersection = width_height_intersection.slice(1, 0, 1, 1) * width_height_intersection.slice(1, 1, 2, 1);
+    auto intersection = width_height_intersection.slice(1, 0, 1, 1).clamp(0) * width_height_intersection.slice(1, 1, 2, 1).clamp(0);
     auto u_n_i_o_n = areas1 + areas2 - intersection;
     auto iou = intersection / u_n_i_o_n;
     return iou;
