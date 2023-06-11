@@ -4,7 +4,7 @@ batch_size = 15
 number_of_workers = 10
 learning_rate = 1.0e-04
 momentum = 1.0e-01
-weight_decay = 1.0e-04
+weight_decay = 1.0e-03
 display = true
 
 [data_set]
@@ -22,8 +22,8 @@ number_of_detections = 5
 input_channel = 3
 num_classes = 20
 num_anchors = 3
-layers_structure = [ [ 32, 3, 1, 0 ], [ 64, 3, 2, 1 ], [ 128, 3, 2, 2 ], [ 256, 3, 2, 8 ], [ 512, 3, 2, 8 ], [ 1024, 3, 2, 4 ] ]
-model_path = "saved_models/29"
+layers_structure = [ [ 32, 3, 1, 0 ], [ 64, 3, 2, 1 ], [ 128, 3, 2, 2 ], [ 256, 3, 2, 8 ], [ 512, 3, 2, 8 ], [ 1024, 3, 2, 3 ] ]
+model_path = "saved_models/32"
 model_weight_file_name = "yolv3.pt"
 model_weight_file_name_current = "yolov3_current.pt"
 model_loss_graph_file = "loss.png"
