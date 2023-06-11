@@ -63,15 +63,15 @@ class YOLOLossImpl : public torch::nn::Module
     // #   FOR OBJECT LOSS    #
     // # ==================== #
     // Calculate IOU for all detections
-    // auto ious = IOU(objects_predictions, objects_label);
+    auto ious = IOU(objects_predictions, objects_label);
     auto obj_bojectness_labels = objects_label.slice(1, 24, 25, 1);
     auto obj_bojectness_predictions = objects_predictions.slice(1, 24, 25, 1);
-    auto object_loss = m_mse_loss(obj_bojectness_predictions, (obj_bojectness_labels));
-    // std::cout << "\e[A\e[A\r"
-    //           << "\033[2K"
-    //           << "IOU " << ious.mean().data().item<double>() << std::endl
-    //           << std::endl
-    //           << std::flush;
+    auto object_loss = m_mse_loss(obj_bojectness_predictions, (ious * obj_bojectness_labels));
+    std::cout << "\e[A\e[A\r"
+              << "\033[2K"
+              << "IOU " << ious.mean().data().item<double>() << std::endl
+              << std::endl
+              << std::flush;
 
     // # ================== #
     // #   FOR CLASS LOSS   #
@@ -181,7 +181,7 @@ class YOLOLossImpl : public torch::nn::Module
     auto x12 = x1c + w1 / 2;
     auto y12 = y1c + h1 / 2;
 
-    auto areas1 = w1 * h1;
+    auto area1 =torch::abs(w1 * h1);
 
     auto x2c = box2.slice(1, 0, 1, 1);
     auto y2c = box2.slice(1, 1, 2, 1);
@@ -192,15 +192,16 @@ class YOLOLossImpl : public torch::nn::Module
     auto x22 = x2c + w2 / 2;
     auto y22 = y2c + h2 / 2;
 
-    auto areas2 = w2 * h2;
+    auto area2 = torch::abs(w2 * h2);
 
-    auto left_top = torch::min(torch::cat({ x11, y11 }, 1), torch::cat({ x21, y11 }, 1));
-    auto right_bottom = torch::max(torch::cat({ x12, y12 }, 1), torch::cat({ x22, y22 }, 1));
-    auto width_height_intersection = (right_bottom - left_top).clamp(0);
-    auto intersection = width_height_intersection.slice(1, 0, 1, 1) * width_height_intersection.slice(1, 1, 2, 1);
-    auto u_n_i_o_n = areas1 + areas2 - intersection + 1e-6;
-    auto iou = intersection / u_n_i_o_n;
-    return iou;
+    auto x1 = torch::max(x11, x21);
+    auto y1 = torch::max(y11, y21);
+    auto x2 = torch::min(x12, x22);
+    auto y2 = torch::min(y12, y22);
+
+    auto intersection = (x2 - x1).clamp(0) * (y2 - y1).clamp(0);
+
+    return intersection / (area1 + area2 - intersection + 1e-06);
   }
 };
 
