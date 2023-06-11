@@ -45,7 +45,7 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_dra
   if (!target_draw)
   {
     classess_flaten = softmax(classess_flaten);
-    objectness_flaten = objectness_flaten.sigmoid();
+    // objectness_flaten = objectness_flaten.sigmoid();
   }
 
   std::vector<int> selected_index{};
@@ -87,7 +87,7 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
   
   if (!target_draw)
   {
-    bounding_box = bounding_box.sigmoid();
+    // bounding_box = bounding_box.sigmoid();
     torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
     classess_flaten = softmax(classess_flaten);
   }
