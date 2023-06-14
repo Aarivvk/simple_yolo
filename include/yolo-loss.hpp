@@ -32,7 +32,7 @@ class YOLOLossImpl : public torch::nn::Module
     auto no_objects_predictions = predictions.index({ no_objects_index });
     auto obj_bojectness_labels = no_objects_label.slice(1, 24, 25, 1);
     auto obj_bojectness_predictions = no_objects_predictions.slice(1, 24, 25, 1);
-    auto no_object_loss = m_mse_loss(obj_bojectness_predictions, obj_bojectness_labels);
+    auto no_object_loss = m_bce(obj_bojectness_predictions, obj_bojectness_labels);
 
     auto objects_label = targets.index({ objects_index });
     auto objects_predictions = predictions.index({ objects_index });
@@ -63,15 +63,15 @@ class YOLOLossImpl : public torch::nn::Module
     // #   FOR OBJECT LOSS    #
     // # ==================== #
     // Calculate IOU for all detections
-    auto ious = IOU(objects_predictions, objects_label);
+    // auto ious = IOU(objects_predictions, objects_label);
     auto obj_bojectness_labels = objects_label.slice(1, 24, 25, 1);
     auto obj_bojectness_predictions = objects_predictions.slice(1, 24, 25, 1);
-    auto object_loss = m_mse_loss(obj_bojectness_predictions, (ious * obj_bojectness_labels));
-    std::cout << "\e[A\e[A\r"
-              << "\033[2K"
-              << "IOU " << ious.mean().data().item<double>() << std::endl
-              << std::endl
-              << std::flush;
+    auto object_loss = m_bce(obj_bojectness_predictions, obj_bojectness_labels);
+    // std::cout << "\e[A\e[A\r"
+    //           << "\033[2K"
+    //           << "IOU " << ious.mean().data().item<double>() << std::endl
+    //           << std::endl
+    //           << std::flush;
 
     // # ================== #
     // #   FOR CLASS LOSS   #
