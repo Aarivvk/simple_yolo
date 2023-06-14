@@ -56,7 +56,7 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_dra
     auto objectness_prob = objectness_flaten[i].item<float>();
     auto obj_threshold = config["bojectness_threshold"].value<double>().value();
     auto class_threshold = config["class_threshold"].value<double>().value();
-    if (objectness_prob >= obj_threshold && calss_prob > class_threshold)
+    if (objectness_prob >= obj_threshold)
     {
       // std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
       //           << " class_index " << class_indexe << std::endl;
