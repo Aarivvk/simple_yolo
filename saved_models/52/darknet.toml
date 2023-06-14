@@ -1,0 +1,39 @@
+[camera]
+image_height = 480
+image_width = 640
+
+[data_set]
+class_names = 'class-names.csv'
+image_directory_name = 'images'
+image_height = 216
+image_width = 216
+lable_directory_name = 'labels'
+number_of_detections = 5
+test_file_name = 'test.csv'
+train_file_name = 'train.csv'
+training_data_root = 'data/PASCAL_VOC'
+
+[inference]
+bojectness_threshold = 0.51000000000000001
+class_threshold = 0.51000000000000001
+
+[training_loop]
+batch_size = 16
+display = true
+epochs = 50
+learning_rate = 0.00050000000000000001
+momentum = 0.10000000000000001
+number_of_workers = 10
+weight_decay = 0.01
+
+[yolo_model]
+input_channel = 3
+layers_structure = [ [ 32, 3, 1, 0 ], [ 64, 3, 2, 2 ], [ 128, 3, 2, 4 ], [ 256, 3, 2, 8 ], [ 512, 3, 2, 16 ], [ 1024, 3, 2, 8 ] ]
+model_loss_graph_file = 'loss.png'
+model_loss_graph_file_current = 'loss_current.png'
+model_optimize_file_name = 'opitimize.pt'
+model_path = 'saved_models/52'
+model_weight_file_name = 'yolv3.pt'
+model_weight_file_name_current = 'yolov3_current.pt'
+num_anchors = 3
+num_classes = 20
