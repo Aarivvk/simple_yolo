@@ -45,7 +45,7 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_dra
   if (!target_draw)
   {
     classess_flaten = softmax(classess_flaten);
-    // objectness_flaten = objectness_flaten.sigmoid();
+    objectness_flaten = objectness_flaten.sigmoid();
   }
 
   std::vector<int> selected_index{};
