@@ -89,6 +89,7 @@ int main(void)
     img_tensor = img_tensor.unsqueeze(0);
     img_tensor = img_tensor.to(device);
     img_tensor = img_tensor / 255;
+    img_tensor = (img_tensor - img_tensor.mean())/ img_tensor.std();
 
     // Feed to the simple-yolo model
     auto output = yolov3(img_tensor);

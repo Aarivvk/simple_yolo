@@ -129,6 +129,8 @@ int main()
   yolov3->train();
   yolo_loss->train();
   double previous_loss{ 100 };
+
+  size_t diverge_count{};
   for (size_t i = 0; i < epochs && run; i++)
   {
     // Iterate the data loader to yield batches from the dataset.
@@ -264,7 +266,7 @@ int main()
       data_ploter.add_data_validation(current_loss, i, epoch_precision_validation.mean().data().item<double>());
 
       // Save the configuration on dereasing test loss
-      if (current_loss <= previous_loss)
+      if (current_loss <= previous_loss && run)
       {
         std::cout << std::endl
                   << std::endl
@@ -272,6 +274,16 @@ int main()
         torch::save(yolov3, model_save_file_path);
         data_ploter.save_graph(model_loss_graph_file_path);
         previous_loss = current_loss;
+        diverge_count = 0;
+      }
+      else{
+        diverge_count++;
+        if(diverge_count > 3)
+        {
+          // Early stoping.
+          std::cout << "Early stoping " << i << std::endl;
+          run = false;
+        }
       }
     }
 

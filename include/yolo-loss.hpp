@@ -46,7 +46,7 @@ class YOLOLossImpl : public torch::nn::Module
     // std::cout << "object_loss " << object_loss.item<double>() << std::endl;
     // std::cout << "no_object_loss " << no_object_loss.item<double>() << std::endl;
 
-    return object_loss + no_object_loss;
+    return object_loss + no_object_loss * 10;
   }
 
   torch::Tensor yolo_loss(torch::Tensor& objects_label, torch::Tensor& objects_predictions)
@@ -81,7 +81,7 @@ class YOLOLossImpl : public torch::nn::Module
     auto class_prediction = objects_predictions.slice(1, 0, 20, 1);
     auto class_loss = m_cross_entropy_loss(class_prediction, class_lable);
 
-    return object_loss + box_loss + class_loss;
+    return object_loss + box_loss * 10 + class_loss;
   }
 
   double accuracy(torch::Tensor predictions, torch::Tensor targets)
