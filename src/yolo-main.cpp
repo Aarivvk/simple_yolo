@@ -281,7 +281,7 @@ int main()
         if(diverge_count > 3)
         {
           // Early stoping.
-          std::cout << "Early stoping " << i << std::endl;
+          std::cout << std::endl << "Early stoping " << i << std::endl;
           run = false;
         }
       }
