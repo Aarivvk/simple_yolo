@@ -1,0 +1,1 @@
+Saving the best weight for loss 2.691299 epoch 5 

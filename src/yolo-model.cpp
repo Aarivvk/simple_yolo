@@ -38,7 +38,7 @@ class CNNImpl : public torch::nn::Module
       : m_cnn_2d{ torch::nn::Conv2dOptions({ input_channel, output_channel, kernel_size }).padding(padding).stride(stride) },
         m_batch_norm_2d{ torch::nn::BatchNorm2dOptions(output_channel) },
         add_bn{ add_bn },
-        activation{ torch::nn::LeakyReLUOptions().negative_slope(0.1) }
+        activation{torch::nn::LeakyReLUOptions().negative_slope(0.2).inplace(true)}
   {
     register_module("conv", m_cnn_2d);
     register_module("batch_norm", m_batch_norm_2d);

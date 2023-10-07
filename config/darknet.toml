@@ -1,10 +1,10 @@
 [training_loop]
-epochs = 100
-batch_size = 15
+epochs = 50
+batch_size = 16
 number_of_workers = 10
-learning_rate = 1.0e-04
+learning_rate = 9.5e-04
 momentum = 1.0e-01
-weight_decay = 1.0e-04
+weight_decay = 1.0e-02
 display = true
 
 [data_set]
@@ -18,13 +18,15 @@ image_width = 216
 image_height = 216
 number_of_detections = 5
 
+
 [yolo_model]
 input_channel = 3
 num_classes = 20
 num_anchors = 3
-layers_structure = [ [ 32, 3, 1, 0 ], [ 64, 3, 2, 1 ], [ 128, 3, 2, 2 ], [ 256, 3, 2, 8 ], [ 512, 3, 2, 8 ], [ 1024, 3, 2, 4 ] ]
-model_path = "saved_models/29"
+layers_structure = [ [ 32, 3, 1, 0 ], [ 64, 3, 2, 2 ], [ 128, 3, 2, 4 ], [ 256, 3, 2, 8 ], [ 512, 3, 2, 16 ], [ 1024, 3, 2, 16 ] ]
+model_path = "saved_models/72"
 model_weight_file_name = "yolv3.pt"
+model_optimize_file_name = "opitimize.pt"
 model_weight_file_name_current = "yolov3_current.pt"
 model_loss_graph_file = "loss.png"
 model_loss_graph_file_current = "loss_current.png"
@@ -34,5 +36,87 @@ image_width = 640
 image_height = 480
 
 [inference]
-bojectness_threshold = 0.8
-class_threshold = 0.8
+bojectness_threshold = 0.5
+class_threshold = 0.5
+labels = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+# labels = ["person",
+#  "bicycle",
+#  "car",
+#  "motorcycle",
+#  "airplane",
+#  "bus",
+#  "train",
+#  "truck",
+#  "boat",
+#  "traffic light",
+#  "fire hydrant",
+#  "stop sign",
+#  "parking meter",
+#  "bench",
+#  "bird",
+#  "cat",
+#  "dog",
+#  "horse",
+#  "sheep",
+#  "cow",
+#  "elephant",
+#  "bear",
+#  "zebra",
+#  "giraffe",
+#  "backpack",
+#  "umbrella",
+#  "handbag",
+#  "tie",
+#  "suitcase",
+#  "frisbee",
+#  "skis",
+#  "snowboard",
+#  "sports ball",
+#  "kite",
+#  "baseball bat",
+#  "baseball glove",
+#  "skateboard",
+#  "surfboard",
+#  "tennis racket",
+#  "bottle",
+#  "wine glass",
+#  "cup",
+#  "fork",
+#  "knife",
+#  "spoon",
+#  "bowl",
+#  "banana",
+#  "apple",
+#  "sandwich",
+#  "orange",
+#  "broccoli",
+#  "carrot",
+#  "hot dog",
+#  "pizza",
+#  "donut",
+#  "cake",
+#  "chair",
+#  "couch",
+#  "potted plant",
+#  "bed",
+#  "dining table",
+#  "toilet",
+#  "tv",
+#  "laptop",
+#  "mouse",
+#  "remote",
+#  "keyboard",
+#  "cell phone",
+#  "microwave",
+#  "oven",
+#  "toaster",
+#  "sink",
+#  "refrigerator",
+#  "book",
+#  "clock",
+#  "vase",
+#  "scissors",
+#  "teddy bear",
+#  "hair drier",
+#  "toothbrush"
+# ]

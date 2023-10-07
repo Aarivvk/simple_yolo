@@ -75,28 +75,30 @@ int main()
   std::filesystem::path model_loss_graph_file_name_current{
     model_config["model_loss_graph_file_current"].value<std::string>().value()
   };
+  std::filesystem::path model_optimize_file_name{ model_config["model_optimize_file_name"].value<std::string>().value() };
   std::filesystem::path model_loss_graph_file_path = model_save_directory / model_loss_graph_file_name;
-  std::filesystem::path model_loss_graph_file_path_current = model_save_directory / model_loss_graph_file_name;
+  std::filesystem::path model_loss_graph_file_path_current = model_save_directory / model_loss_graph_file_name_current;
 
   // Create the module from fonfiguration
   YOLOv3 yolov3{ model_config };
-  if (std::filesystem::exists(model_save_file_path))
-  {
-    torch::load(yolov3, model_save_file_path);
-    std::cout << "Loaded previous weights from " << model_save_file_path << std::endl;
-  }
-  yolov3->to(device);
-
-  std::cout << "Yolo model created" << std::endl;
+  // Create the loss object
+  YOLOLoss yolo_loss{};
 
   auto training_config = config["training_loop"];
   double learning_rate = training_config["learning_rate"].value<double>().value();
   double momentum = training_config["momentum"].value<double>().value();
   double weight_decay = training_config["weight_decay"].value<double>().value();
-  // torch::optim::Adam optimizer(yolov3->parameters(),
-  // torch::optim::AdamOptions().lr(learning_rate).weight_decay(weight_decay));
   torch::optim::AdamW optimizer(
       yolov3->parameters(), torch::optim::AdamWOptions().lr(learning_rate).weight_decay(weight_decay));
+  if (std::filesystem::exists(model_save_file_path))
+  {
+    torch::load(yolov3, model_save_file_path);
+    torch::load(optimizer, model_save_directory / model_optimize_file_name);
+    std::cout << "Loaded previous weights from " << model_save_file_path << std::endl;
+  }
+  yolov3->to(device);
+
+  std::cout << "Yolo model created" << std::endl;
 
   // Preaper the data set
   uint64_t batch_size = training_config["batch_size"].value<uint64_t>().value();
@@ -113,22 +115,22 @@ int main()
   size_t test_data_size = test_data_set.size().value();
   std::cout << "Data loader created" << std::endl;
 
-  // Create the loss object
-  YOLOLoss yolo_loss{};
-
   std::cout << "Start training" << std::endl;
   std::cout << std::endl << std::endl << std::endl << std::endl;
 
-  // torch::Tensor train_avarage_loss = torch::zeros({ 1 }).to(device);
-  // torch::Tensor test_avarage_loss = torch::zeros({ 1 }).to(torch::kCPU);
   size_t epochs = training_config["epochs"].value<size_t>().value();
   bool run = true;
   bool display = training_config["display"].value<bool>().value();
+  std::ofstream ofs(model_save_directory / config_file);
+  ofs << config << std::flush;
+  ofs.close();
 
   std::cout << std::fixed;
   yolov3->train();
   yolo_loss->train();
   double previous_loss{ 100 };
+
+  size_t diverge_count{};
   for (size_t i = 0; i < epochs && run; i++)
   {
     // Iterate the data loader to yield batches from the dataset.
@@ -157,8 +159,6 @@ int main()
       optimizer.step();
       auto precision = yolo_loss->accuracy(model_prediction_tensor, batch_targets_tensor);
 
-      // auto loss_cpu = loss.clone().to(torch::kCPU);
-      // train_avarage_loss = train_avarage_loss + loss;
       auto loss_data = loss.sum().item<double>();
       std::cout << '\r' << "\033[2K"
                 << "[Train]"
@@ -167,10 +167,10 @@ int main()
                 << "Precision = " << precision << std::flush;
       torch::Tensor local_loss = torch::zeros({ 1 }).to(device);
       local_loss = local_loss + loss_data;
-      epoch_loss = torch::cat({ epoch_loss, local_loss }, 0);
+      epoch_loss = torch::cat({ epoch_loss, local_loss });
       torch::Tensor local_precision = torch::zeros({ 1 }).to(device);
       local_precision = local_precision + precision;
-      epoch_precision = torch::cat({ epoch_precision, local_precision }, 0);
+      epoch_precision = torch::cat({ epoch_precision, local_precision });
 
       if (display)
       {
@@ -187,17 +187,16 @@ int main()
     }
     data_ploter.add_data_train(epoch_loss.mean().data().item<double>(), i, epoch_precision.mean().data().item<double>());
 
+    // Save weights for every epoch
     torch::save(yolov3, model_save_file_path_current);
+    torch::save(optimizer, model_save_directory / model_optimize_file_name);
     data_ploter.save_graph(model_loss_graph_file_path_current);
-    std::ofstream ofs(model_save_directory / config_file);
-    ofs << config << std::flush;
-    ofs.close();
 
     std::cout << std::endl;
 
     {
       torch::NoGradGuard no_grad;
-      // Create the module from fonfiguration
+      // Create the module from last saved weight
       YOLOv3 yolov3_test{ model_config };
       if (std::filesystem::exists(model_save_file_path_current))
       {
@@ -208,12 +207,14 @@ int main()
         std::cout << "Error: no file to load " << model_save_file_path_current << std::endl;
         exit(1);
       }
+
       yolov3_test->to(device);
       yolov3_test->eval();
       // Create test loss
       YOLOLoss yolo_loss_test{};
       yolo_loss_test->to(device);
       yolo_loss_test->eval();
+
       torch::Tensor epoch_loss_validation = torch::zeros({ 1 }).to(device);
       torch::Tensor epoch_precision_validation = torch::zeros({ 1 }).to(device);
       size_t validation_batch_count = 1;
@@ -233,8 +234,6 @@ int main()
         auto loss = yolo_loss_test(model_prediction_tensor, batch_targets_tensor);
         auto precision = yolo_loss_test->accuracy(model_prediction_tensor, batch_targets_tensor);
 
-        // auto loss_cpu = loss.clone().to(torch::kCPU);
-        // train_avarage_loss = train_avarage_loss + loss;
         auto loss_data = loss.item<float>();
 
         std::cout << '\r' << "\033[2K"
@@ -246,10 +245,10 @@ int main()
 
         torch::Tensor local_loss = torch::zeros({ 1 }).to(device);
         local_loss = local_loss + loss_data;
-        epoch_loss_validation = torch::cat({ epoch_loss_validation, local_loss }, 0);
+        epoch_loss_validation = torch::cat({ epoch_loss_validation, local_loss });
         torch::Tensor local_precision = torch::zeros({ 1 }).to(device);
         local_precision = local_precision + precision;
-        epoch_precision_validation = torch::cat({ epoch_precision_validation, local_precision }, 0);
+        epoch_precision_validation = torch::cat({ epoch_precision_validation, local_precision });
 
         if (display)
         {
@@ -265,17 +264,26 @@ int main()
       }
       auto current_loss = epoch_loss_validation.mean().data().item<double>();
       data_ploter.add_data_validation(current_loss, i, epoch_precision_validation.mean().data().item<double>());
-      if (current_loss <= previous_loss)
+
+      // Save the configuration on dereasing test loss
+      if (current_loss <= previous_loss && run)
       {
         std::cout << std::endl
                   << std::endl
                   << "Saving the best weight for loss " << current_loss << " epoch " << i + 1 << std::endl;
         torch::save(yolov3, model_save_file_path);
         data_ploter.save_graph(model_loss_graph_file_path);
-        std::ofstream ofs(model_save_directory / config_file);
-        ofs << config << std::flush;
-        ofs.close();
         previous_loss = current_loss;
+        diverge_count = 0;
+      }
+      else{
+        diverge_count++;
+        if(diverge_count > 3)
+        {
+          // Early stoping.
+          std::cout << std::endl << "Early stoping " << i << std::endl;
+          run = false;
+        }
       }
     }
 

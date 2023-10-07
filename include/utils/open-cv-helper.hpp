@@ -10,12 +10,14 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <string>
-#include "toml++/toml.h"
 
 #include "opencv2/core.hpp"
+#include "toml++/toml.h"
+
 
 // https :  // docs.opencv.org/4.x/d8/dfe/classcv_1_1VideoCapture.html
-cv::VideoCapture get_camera(int width, int height)
+cv::VideoCapture
+get_camera(int width, int height)
 {
   cv::Mat frame;
   cv::VideoCapture cap(0);
@@ -58,7 +60,8 @@ std::vector<int> get_selected_indexes(torch::Tensor predictions, bool target_dra
     auto class_threshold = config["class_threshold"].value<double>().value();
     if (objectness_prob >= obj_threshold && calss_prob > class_threshold)
     {
-      // std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " << calss_prob
+      // std::cout << "Selecting the index " << i << " with objectness_prob " << objectness_prob << " calss_prob " <<
+      // calss_prob
       //           << " class_index " << class_indexe << std::endl;
       selected_index.push_back(i);
     }
@@ -84,10 +87,10 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
 
   auto classes = prediction.slice(2, torch::indexing::None, 20, 1);
   auto classess_flaten = classes.flatten(0, 1);
-  
+
   if (!target_draw)
   {
-    bounding_box = bounding_box.sigmoid();
+    // bounding_box = bounding_box.sigmoid();
     torch::nn::Softmax softmax(torch::nn::SoftmaxOptions(1));
     classess_flaten = softmax(classess_flaten);
   }
@@ -127,8 +130,8 @@ void draw_bounding_box(torch::Tensor& prediction, cv::Mat& frame, bool target_dr
     }
     cv::rectangle(frame, { x1, y1 }, { x2, y2 }, color, thickness);
     cv::circle(frame, { x[item].item<int>(), y[item].item<int>() }, 5, color, thickness);
-    std::string class_number_probability = "id=" + std::to_string(class_indexe) + " c=" + std::to_string(calss_prob);
-    cv::putText(frame, class_number_probability, { x1, y1 - 3 }, cv::FONT_HERSHEY_SIMPLEX, 0.6, color, thickness);
+    std::string class_number_probability = config["labels"][class_indexe].value<std::string>().value() + "::" + std::to_string(calss_prob).substr(0,5);
+    cv::putText(frame, class_number_probability, { x1, y1 - 5 }, cv::FONT_HERSHEY_SIMPLEX, 0.6, color, thickness);
   }
   // std::cout << "_________________________" << name << "___________________________" << std::endl;
   // std::cout << std::endl;
@@ -166,7 +169,11 @@ bool display_imgae(torch::Tensor t_image, toml::node_view<toml::node> config)
   return display_imgae(image);
 }
 
-bool display_imgae(torch::Tensor t_image, torch::Tensor t_predict, torch::Tensor t_target, toml::node_view<toml::node> config)
+bool display_imgae(
+    torch::Tensor t_image,
+    torch::Tensor t_predict,
+    torch::Tensor t_target,
+    toml::node_view<toml::node> config)
 {
   cv::Mat image = get_cv_frame(t_image);
   draw_bounding_box(t_target, image, true, config);
