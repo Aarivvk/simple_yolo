@@ -3,5 +3,5 @@ project(project_resnet)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE "Debug")
-
 add_subdirectory(src)
+
